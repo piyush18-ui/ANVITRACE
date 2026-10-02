@@ -25,16 +25,23 @@ import {
   ArrowRight,
   TrendingDown,
   TrendingUp,
+  ArrowLeft,
 } from 'lucide-react';
 
 interface InvestigateWorkspaceProps {
   initialAccountId?: string;
   onNavigateToNotice?: (accountId: string) => void;
+  onSelectAccount?: (accountId: string) => void;
+  onGoBack?: () => void;
+  previousLabel?: string;
 }
 
 export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
   initialAccountId = '',
   onNavigateToNotice,
+  onSelectAccount,
+  onGoBack,
+  previousLabel,
 }) => {
   const [searchAccount, setSearchAccount] = useState(initialAccountId);
   const [currentAccount, setCurrentAccount] = useState(initialAccountId);
@@ -433,7 +440,18 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
       <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {onGoBack && (
+                <button
+                  type="button"
+                  onClick={onGoBack}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 hover:text-slate-900 rounded-lg text-xs font-semibold border border-slate-200 transition-all shadow-xs cursor-pointer group mr-1"
+                  title={previousLabel ? `Back to ${previousLabel}` : 'Go back to previous screen'}
+                >
+                  <ArrowLeft size={13} className="transition-transform group-hover:-translate-x-0.5 text-slate-600" />
+                  <span>Back{previousLabel ? `: ${previousLabel}` : ''}</span>
+                </button>
+              )}
               <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 uppercase tracking-wider">
                 DEEP-DIVE INTELLIGENCE
               </span>
@@ -535,7 +553,11 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            handleSearch();
+            const acc = searchAccount.trim();
+            if (acc) {
+              handleSearch(acc);
+              if (onSelectAccount) onSelectAccount(acc);
+            }
           }}
           className="flex gap-2"
         >
@@ -781,6 +803,7 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
                     onSelectAccount={(acc) => {
                       setSearchAccount(acc);
                       handleSearch(acc);
+                      if (onSelectAccount) onSelectAccount(acc);
                     }}
                   />
                 )}
@@ -826,7 +849,18 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
                                     <span className={`text-[8px] font-bold px-1 py-0.2 rounded border ${bank.color}`}>
                                       {bank.name}
                                     </span>
-                                    <span className="font-mono text-slate-900">{sender}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSearchAccount(sender);
+                                        handleSearch(sender);
+                                        if (onSelectAccount) onSelectAccount(sender);
+                                      }}
+                                      className="font-mono text-slate-900 hover:text-amber-600 hover:underline text-left cursor-pointer font-bold"
+                                      title={`Investigate sender ${sender}`}
+                                    >
+                                      {sender}
+                                    </button>
                                   </div>
                                 </td>
                                 <td className="py-2 px-3 text-right font-mono font-bold text-emerald-700 tabular-nums">
@@ -886,7 +920,18 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
                                     <span className={`text-[8px] font-bold px-1 py-0.2 rounded border ${bank.color}`}>
                                       {bank.name}
                                     </span>
-                                    <span className="font-mono text-slate-900">{receiver}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSearchAccount(receiver);
+                                        handleSearch(receiver);
+                                        if (onSelectAccount) onSelectAccount(receiver);
+                                      }}
+                                      className="font-mono text-slate-900 hover:text-amber-600 hover:underline text-left cursor-pointer font-bold"
+                                      title={`Investigate receiver ${receiver}`}
+                                    >
+                                      {receiver}
+                                    </button>
                                   </div>
                                 </td>
                                 <td className="py-2 px-3 text-right font-mono font-bold text-rose-700 tabular-nums">

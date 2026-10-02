@@ -6,6 +6,7 @@ import {
   UserCheck,
   ChevronRight,
   Terminal,
+  ArrowLeft,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -13,6 +14,9 @@ interface HeaderProps {
   datasetId?: string;
   backendOnline: boolean;
   onSearchTarget?: (target: string) => void;
+  canGoBack?: boolean;
+  onGoBack?: () => void;
+  previousLabel?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -20,6 +24,9 @@ export const Header: React.FC<HeaderProps> = ({
   datasetId,
   backendOnline,
   onSearchTarget,
+  canGoBack = false,
+  onGoBack,
+  previousLabel,
 }) => {
   const [query, setQuery] = useState('');
 
@@ -33,8 +40,19 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="h-16 bg-white/95 backdrop-blur-md z-40 flex items-center justify-between px-6 border-b border-slate-200 select-none sticky top-0 shrink-0 shadow-xs">
-      {/* Left: Breadcrumbs & Active Dataset / Case */}
+      {/* Left: Back button & Breadcrumbs */}
       <div className="flex items-center gap-3">
+        {canGoBack && onGoBack && (
+          <button
+            type="button"
+            onClick={onGoBack}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 hover:text-slate-900 border border-slate-200 text-xs font-semibold transition-all shadow-xs cursor-pointer group"
+            title={previousLabel ? `Back to ${previousLabel}` : 'Go back to previous screen'}
+          >
+            <ArrowLeft size={14} className="transition-transform group-hover:-translate-x-0.5 text-slate-600" />
+            <span>Back</span>
+          </button>
+        )}
         <div className="flex items-center gap-2 text-xs">
           <span className="flex items-center gap-1.5 font-bold text-slate-900 tracking-tight">
             <Terminal size={15} className="text-amber-500" />
