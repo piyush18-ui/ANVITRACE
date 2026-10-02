@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   Search,
   Database,
-  Shield,
   UserCheck,
   ChevronRight,
   Terminal,
@@ -11,14 +10,14 @@ import {
 interface HeaderProps {
   caseReference?: string;
   datasetId?: string;
-  backendOnline: boolean;
+  backendOnline?: boolean;
   onSearchTarget?: (target: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   caseReference = 'ACTIVE SESSION',
   datasetId,
-  backendOnline,
+  backendOnline: _backendOnline,
   onSearchTarget,
 }) => {
   const [query, setQuery] = useState('');

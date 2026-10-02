@@ -147,17 +147,25 @@ async def get_dataset_statistics(
     summary="Clear all ingested datasets and transaction records",
 )
 async def reset_dataset():
-    """Clear all ingested transactions, datasets, and analytical features from DuckDB."""
+    """Clear all ingested transactions, datasets, and analytical features from DuckDB instantly."""
+    from app.database.schema import apply_schema
     conn = get_connection()
     try:
-        conn.execute("DELETE FROM legal_documents;")
-        conn.execute("DELETE FROM evidence_snapshots;")
-        conn.execute("DELETE FROM investigation_snapshots;")
-        conn.execute("DELETE FROM transaction_features;")
-        conn.execute("DELETE FROM account_features;")
-        conn.execute("DELETE FROM transactions;")
-        conn.execute("DELETE FROM ingestion_runs;")
-        conn.execute("DELETE FROM datasets;")
+        tables = [
+            "evidence_items",
+            "legal_documents",
+            "evidence_snapshots",
+            "investigation_snapshots",
+            "transaction_features",
+            "account_features",
+            "transactions",
+            "ingestion_runs",
+            "datasets",
+        ]
+        for t in tables:
+            conn.execute(f"DROP TABLE IF EXISTS {t} CASCADE;")
+        apply_schema(conn)
+        conn.execute("CHECKPOINT;")
         logger.info("Successfully cleared all ingested dataset tables and transaction records from DuckDB.")
         return {"status": "success", "message": "All ingested dataset tables and transaction records have been cleared."}
     except Exception as e:

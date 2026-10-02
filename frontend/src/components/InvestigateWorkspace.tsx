@@ -21,10 +21,6 @@ import {
   Download,
   Copy,
   Check,
-  Layers,
-  ArrowRight,
-  TrendingDown,
-  TrendingUp,
 } from 'lucide-react';
 
 interface InvestigateWorkspaceProps {

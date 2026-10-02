@@ -69,10 +69,10 @@ class RecoveryService:
                     mule_risk = risk_profile.mule_risk_index
 
             # Deterministic recovery priority score (0-100 scale)
-            # Combines net flow magnitude (normalized), retention percentage, and risk score
-            flow_norm = min(100.0, net_flow / 500.0)
+            # Combines Mule Risk Index (50%), net flow magnitude (30%), and retention (20%)
+            flow_norm = min(100.0, net_flow / 500.0) if net_flow > 0 else 0.0
             priority_score = round(
-                0.45 * flow_norm + 0.35 * retention_pct + 0.20 * (mule_risk or 0.0),
+                0.50 * (mule_risk or 0.0) + 0.30 * flow_norm + 0.20 * retention_pct,
                 2,
             )
 
@@ -107,8 +107,15 @@ class RecoveryService:
                 )
             )
 
-        # Sort descending by priority score
-        candidates.sort(key=lambda x: (x.recovery_priority_score, x.observed_net_flow), reverse=True)
+        # Sort descending by Mule Risk Index first, then priority score and net flow
+        candidates.sort(
+            key=lambda x: (
+                x.mule_risk_index if x.mule_risk_index is not None else 0.0,
+                x.recovery_priority_score,
+                x.observed_net_flow,
+            ),
+            reverse=True,
+        )
 
         log_event(
             "RECOVERY_CANDIDATES_GENERATED",

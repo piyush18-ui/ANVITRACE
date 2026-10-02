@@ -192,7 +192,9 @@ class AccountRepository:
         min_net_flow: float = 0.01,
         limit: int = 100,
     ) -> list[dict[str, Any]]:
-        """Retrieve accounts with positive observed net flow strictly within the dataset scope."""
+        """Retrieve accounts with positive observed net flow strictly within the dataset scope,
+        ranked by behavioral fraud and mule indicators (fan-in, fan-out, pass-through velocity).
+        """
         query = """
             SELECT
                 account_id,
@@ -202,11 +204,18 @@ class AccountRepository:
                 first_tx_timestamp,
                 last_tx_timestamp
             FROM account_features
-            WHERE dataset_id = ? AND (in_amount - out_amount) >= ?
-            ORDER BY observed_net_flow DESC
+            WHERE dataset_id = ? AND in_amount > 0 AND (in_amount - out_amount) >= ?
+            ORDER BY
+                (
+                    CASE WHEN distinct_senders >= 3 THEN 30.0 WHEN distinct_senders >= 2 THEN 15.0 ELSE 0.0 END
+                    + CASE WHEN distinct_receivers >= 3 THEN 30.0 WHEN distinct_receivers >= 2 THEN 15.0 ELSE 0.0 END
+                    + CASE WHEN in_tx_count > 0 AND out_tx_count > 0 THEN 25.0 ELSE 0.0 END
+                    + CASE WHEN (in_amount - out_amount) >= ? THEN 15.0 ELSE 0.0 END
+                ) DESC,
+                (in_amount + out_amount) DESC
             LIMIT ?
         """
-        rows = self.conn.execute(query, [dataset_id, min_net_flow, limit]).fetchall()
+        rows = self.conn.execute(query, [dataset_id, min_net_flow, min_net_flow, limit]).fetchall()
         return [
             {
                 "account_id": r[0],

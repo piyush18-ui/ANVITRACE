@@ -12,15 +12,16 @@ export type ActiveTab =
   | 'overview'
   | 'cases'
   | 'investigate'
-  | 'documents';
+  | 'documents'
+  | 'dataset-status';
 
 interface SidebarProps {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
-  backendOnline: boolean;
+  backendOnline?: boolean;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, backendOnline }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
   const navItems = [
     {
       id: 'overview' as const,

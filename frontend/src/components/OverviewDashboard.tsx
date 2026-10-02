@@ -16,6 +16,7 @@ import {
   TrendingUp,
   FolderPlus,
   RefreshCw,
+  Trash2,
 } from 'lucide-react';
 
 interface OverviewDashboardProps {
@@ -41,18 +42,62 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   const fetchData = async () => {
     setLoading(true);
     try {
+      let activeCaseObj: any = null;
+      let activeCaseDatasetId: string | undefined = undefined;
+      let hasActiveCase = false;
+      try {
+        const savedCase = localStorage.getItem('anvitrace_active_case');
+        if (savedCase) {
+          activeCaseObj = JSON.parse(savedCase);
+          hasActiveCase = true;
+          activeCaseDatasetId = activeCaseObj.datasetId;
+        }
+      } catch {}
+
+      // If an active case is selected but NO evidence has been uploaded for it yet,
+      // maintain empty state instead of falling back to unrelated datasets.
+      if (hasActiveCase && !activeCaseDatasetId) {
+        setStats(null);
+        setStatus(null);
+        setCandidates([]);
+        setLoading(false);
+        return;
+      }
+
       const [statsData, statusData, recoveryData] = await Promise.all([
-        api.getDatasetStats().catch(() => null),
-        api.getDatasetStatus().catch(() => null),
-        api.getRecoveryCandidates(undefined, 50).catch(() => ({ candidates: [] })),
+        api.getDatasetStats(activeCaseDatasetId).catch(() => null),
+        api.getDatasetStatus(activeCaseDatasetId).catch(() => null),
+        api.getRecoveryCandidates(activeCaseDatasetId, 50).catch(() => ({ candidates: [] })),
       ]);
-      if (statsData) setStats(statsData);
-      if (statusData) setStatus(statusData);
-      if (recoveryData?.candidates) setCandidates(recoveryData.candidates);
+      setStats(statsData);
+      setStatus(statusData);
+      setCandidates(recoveryData?.candidates || []);
     } catch (e) {
       console.error('Error fetching dashboard data:', e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResetEvidence = async () => {
+    if (window.confirm('Reset forensic evidence? This will clear all ingested transactions and reset the workspace to a clean state.')) {
+      try {
+        await api.resetDataset();
+        try {
+          const savedCase = localStorage.getItem('anvitrace_active_case');
+          if (savedCase) {
+            const parsed = JSON.parse(savedCase);
+            delete parsed.datasetId;
+            delete parsed.datasetFilename;
+            delete parsed.datasetTotalRows;
+            delete parsed.datasetHash;
+            localStorage.setItem('anvitrace_active_case', JSON.stringify(parsed));
+          }
+        } catch {}
+        fetchData();
+      } catch (err: any) {
+        alert(`Reset failed: ${err.message}`);
+      }
     }
   };
 
@@ -313,14 +358,26 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           )}
 
           <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-            <span>Status: Ready</span>
-            <button
-              type="button"
-              onClick={fetchData}
-              className="text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium transition-colors"
-            >
-              <RefreshCw size={11} /> Refresh
-            </button>
+            <span>Status: {status ? 'Mounted' : 'Awaiting Evidence'}</span>
+            <div className="flex items-center gap-2.5">
+              {status && (
+                <button
+                  type="button"
+                  onClick={handleResetEvidence}
+                  className="text-rose-600 hover:text-rose-800 flex items-center gap-1 font-medium transition-colors cursor-pointer"
+                  title="Clear all forensic evidence from workspace"
+                >
+                  <Trash2 size={11} /> Reset
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={fetchData}
+                className="text-blue-600 hover:text-blue-800 flex items-center gap-1 font-medium transition-colors cursor-pointer"
+              >
+                <RefreshCw size={11} /> Refresh
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -410,8 +467,9 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
               ) : (
                 filteredCandidates.map((cand) => {
                   const bank = getBankBadge(cand.account_id);
-                  const isHighRisk = cand.mule_risk_index >= 70;
-                  const isMediumRisk = cand.mule_risk_index >= 30;
+                  const riskVal = cand.mule_risk_index ?? cand.recovery_priority_score ?? 0;
+                  const isHighRisk = riskVal >= 70;
+                  const isMediumRisk = riskVal >= 30;
 
                   return (
                     <tr
@@ -481,7 +539,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                               isHighRisk ? 'bg-rose-500' : isMediumRisk ? 'bg-amber-500' : 'bg-emerald-500'
                             }`}
                           />
-                          {cand.mule_risk_index.toFixed(1)} / 100
+                          {riskVal.toFixed(1)} / 100
                         </span>
                       </td>
 

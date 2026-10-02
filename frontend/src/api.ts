@@ -431,6 +431,14 @@ export const api = {
     return res.json();
   },
 
+  createEvidenceSnapshot: async (victimAccount: string, datasetId?: string, maxHops = 4): Promise<{ snapshot: any; result_hash: string }> => {
+    const res = await api.createSnapshot(victimAccount, datasetId, maxHops);
+    return {
+      snapshot: res.snapshot,
+      result_hash: res.snapshot.result_hash,
+    };
+  },
+
   generateCaseDiary: async (params: {
     victimAccount: string;
     datasetId?: string;

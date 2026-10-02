@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import type { MoneyTrailEdge, GraphNode } from '../api';
-import { ZoomIn, ZoomOut, Maximize2, ShieldAlert, ArrowDownLeft, ArrowUpRight, Target } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, ShieldAlert, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 
 interface MoneyFlowGraphProps {
   nodes?: (GraphNode | string)[];
@@ -79,7 +79,7 @@ export const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({
   // Column -1: Inflows (accounts that transferred money into this ID)
   // Column  0: Investigated Target ID (focal account)
   // Column  1..4: Transferred Beneficiary Accounts (Hop 1..4)
-  const { positions, dynamicHeight, canvasWidth, columns, minCol, maxCol } = useMemo(() => {
+  const { positions, dynamicHeight, canvasWidth, columns, minCol } = useMemo(() => {
     const cols: Record<number, string[]> = {
       [-1]: [],
       0: [victimAccount],
