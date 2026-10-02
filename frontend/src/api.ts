@@ -175,12 +175,23 @@ export interface EvidenceSnapshotResponse {
   reproducibility_note: string;
 }
 
+export type DatasetStatistics = DatasetStats;
+
 export interface DocumentResponse {
   document_id: string;
   investigation_id: string;
   file_path: string;
+  file_format?: string;
   generated_at: string;
   integrity_hash: string;
+  victim_account?: string;
+  target_account_id?: string;
+  document_type?: string;
+  disclaimer?: string;
+  rendered_text?: string;
+  page_count?: number;
+  evidence_item_count?: number;
+  evidence_summary?: Record<string, any>;
 }
 
 export const api = {
@@ -257,8 +268,20 @@ export const api = {
   },
 
   // 4. Recovery
-  getRecoveryCandidates: async (datasetId?: string, limit = 50): Promise<{ candidates: RecoveryCandidate[]; total_candidates: number }> => {
-    const url = datasetId ? `${API_BASE}/recovery/candidates?dataset_id=${datasetId}&limit=${limit}` : `${API_BASE}/recovery/candidates?limit=${limit}`;
+  getRecoveryCandidates: async (
+    datasetIdOrLimit?: string | number,
+    limitParam = 50
+  ): Promise<{ candidates: RecoveryCandidate[]; total_candidates: number }> => {
+    let datasetId: string | undefined = undefined;
+    let limit = limitParam;
+    if (typeof datasetIdOrLimit === 'number') {
+      limit = datasetIdOrLimit;
+    } else if (typeof datasetIdOrLimit === 'string') {
+      datasetId = datasetIdOrLimit;
+    }
+    const url = datasetId
+      ? `${API_BASE}/recovery/candidates?dataset_id=${datasetId}&limit=${limit}`
+      : `${API_BASE}/recovery/candidates?limit=${limit}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error('Recovery candidates unavailable');
     return res.json();

@@ -5,10 +5,13 @@ import type { ActiveTab } from './components/Sidebar';
 import { Header } from './components/Header';
 import { OverviewDashboard } from './components/OverviewDashboard';
 import { InvestigateWorkspace } from './components/InvestigateWorkspace';
+import { LayerDetectionView } from './components/LayerDetectionView';
+import { CaseManagementView } from './components/CaseManagementView';
 import { RecoveryView } from './components/RecoveryView';
 import { CrossVictimView } from './components/CrossVictimView';
 import { DocumentsView } from './components/DocumentsView';
 import { DatasetView } from './components/DatasetView';
+import { SettingsView } from './components/SettingsView';
 
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
@@ -40,7 +43,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-surface font-body-md text-on-surface antialiased overflow-hidden">
-      {/* Sidebar Navigation */}
+      {/* Sidebar Navigation matching Stitch */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -48,38 +51,55 @@ export const App: React.FC = () => {
       />
 
       {/* Main Content Pane */}
-      <div className="flex-1 ml-64 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 ml-72 flex flex-col h-screen overflow-hidden">
         {/* Sticky Header */}
         <Header
           caseReference="CASE-2024-089A"
           datasetId={datasetId}
           backendOnline={backendOnline}
+          onSearchTarget={handleSelectAccount}
         />
 
         {/* Scrollable View Area */}
-        <main className="flex-1 overflow-y-auto px-7 py-6">
+        <main className="flex-1 overflow-y-auto px-8 py-6">
           {activeTab === 'overview' && (
             <OverviewDashboard onSelectAccount={handleSelectAccount} />
           )}
 
-          {(activeTab === 'investigate' || activeTab === 'money-trails' || activeTab === 'risk' || activeTab === 'transactions') && (
+          {(activeTab === 'investigate' || activeTab === 'money-trails') && (
             <InvestigateWorkspace initialAccountId={selectedAccountId} />
+          )}
+
+          {activeTab === 'layers' && (
+            <LayerDetectionView onInvestigateAccount={handleSelectAccount} />
+          )}
+
+          {activeTab === 'risk-analysis' && (
+            <CrossVictimView onInvestigateAccount={handleSelectAccount} />
           )}
 
           {activeTab === 'recovery' && (
             <RecoveryView onInvestigateAccount={handleSelectAccount} />
           )}
 
-          {activeTab === 'syndicate' && (
-            <CrossVictimView onInvestigateAccount={handleSelectAccount} />
+          {activeTab === 'cases' && (
+            <CaseManagementView
+              onInvestigateAccount={handleSelectAccount}
+              onNavigateToDataset={() => setActiveTab('dataset-status')}
+              onNavigateToDocuments={() => setActiveTab('documents')}
+            />
           )}
 
-          {(activeTab === 'documents' || activeTab === 'evidence') && (
+          {activeTab === 'documents' && (
             <DocumentsView />
           )}
 
-          {activeTab === 'dataset' && (
+          {activeTab === 'dataset-status' && (
             <DatasetView />
+          )}
+
+          {activeTab === 'settings' && (
+            <SettingsView />
           )}
         </main>
       </div>
