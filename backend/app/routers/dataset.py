@@ -38,10 +38,10 @@ async def upload_dataset(
     raw_dir.mkdir(parents=True, exist_ok=True)
     temp_target = raw_dir / file.filename
 
-    # Save to disk securely in chunks
+    # Save to disk securely with 1MB chunk buffer
     try:
         with open(temp_target, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            shutil.copyfileobj(file.file, buffer, length=1024 * 1024)
     except Exception as e:
         logger.error(f"Failed to save uploaded file: {e}")
         raise HTTPException(
@@ -53,10 +53,16 @@ async def upload_dataset(
     file_hash = compute_file_sha256(temp_target)
     dataset_id = f"ds_{file_hash[:16]}"
 
-    # Execute full streaming ingestion
+    # Execute streaming ingestion in worker thread so event loop remains responsive
     try:
+        import asyncio
         service = IngestionService(get_connection())
-        result = service.ingest_file(temp_target, dataset_id=dataset_id)
+        result = await asyncio.to_thread(
+            service.ingest_file,
+            temp_target,
+            dataset_id=dataset_id,
+            dataset_hash=file_hash,
+        )
         return DatasetUploadResponse(
             dataset_id=dataset_id,
             dataset_hash=file_hash,

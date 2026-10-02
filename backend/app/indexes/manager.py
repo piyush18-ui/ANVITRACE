@@ -52,7 +52,7 @@ class ForensicIndexManager:
                 FROM transactions
                 WHERE dataset_id = '{self.dataset_id}'
                 ORDER BY Sender_Account, Timestamp ASC
-            ) TO '{self.outgoing_index_path.as_posix()}' (FORMAT PARQUET, COMPRESSION ZSTD);
+            ) TO '{self.outgoing_index_path.as_posix()}' (FORMAT PARQUET, COMPRESSION SNAPPY);
             """
         )
 
@@ -71,7 +71,7 @@ class ForensicIndexManager:
                 FROM transactions
                 WHERE dataset_id = '{self.dataset_id}'
                 ORDER BY Receiver_Account, Timestamp ASC
-            ) TO '{self.incoming_index_path.as_posix()}' (FORMAT PARQUET, COMPRESSION ZSTD);
+            ) TO '{self.incoming_index_path.as_posix()}' (FORMAT PARQUET, COMPRESSION SNAPPY);
             """
         )
 
@@ -111,7 +111,7 @@ class ForensicIndexManager:
                     WHERE dataset_id = '{self.dataset_id}'
                 )
                 ORDER BY account_id, Timestamp ASC
-            ) TO '{self.timeline_index_path.as_posix()}' (FORMAT PARQUET, COMPRESSION ZSTD);
+            ) TO '{self.timeline_index_path.as_posix()}' (FORMAT PARQUET, COMPRESSION SNAPPY);
             """
         )
 

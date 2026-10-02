@@ -15,14 +15,15 @@ _connection: duckdb.DuckDBPyConnection | None = None
 
 
 def get_connection() -> duckdb.DuckDBPyConnection:
-    """Return the active DuckDB connection.
+    """Return an active DuckDB connection cursor.
 
     If not yet connected, opens connection to settings.duckdb_abs_path.
+    Returns a thread-safe cursor to prevent concurrency locks across worker threads.
     """
     global _connection
     if _connection is None:
         return connect()
-    return _connection
+    return _connection.cursor()
 
 
 def connect(db_path: Path | str | None = None) -> duckdb.DuckDBPyConnection:
@@ -35,7 +36,7 @@ def connect(db_path: Path | str | None = None) -> duckdb.DuckDBPyConnection:
     path.parent.mkdir(parents=True, exist_ok=True)
     _connection = duckdb.connect(str(path))
     apply_schema(_connection)
-    return _connection
+    return _connection.cursor()
 
 
 def close() -> None:
