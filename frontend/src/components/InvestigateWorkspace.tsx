@@ -51,8 +51,9 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
   const [activeTab, setActiveTab] = useState<'lineage' | 'risk_features' | 'layers' | 'integrity'>('lineage');
   const [selectedTx, setSelectedTx] = useState<MoneyTrailEdge | null>(null);
 
-  // Freeze notice generation state
+  // Freeze notice and case diary generation state
   const [freezeNoticeDoc, setFreezeNoticeDoc] = useState<DocumentResponse | null>(null);
+  const [caseDiaryDoc, setCaseDiaryDoc] = useState<DocumentResponse | null>(null);
 
   // Action status
   const [actionMessage, setActionMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -82,6 +83,7 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
     setError(null);
     setActionMessage(null);
     setFreezeNoticeDoc(null);
+    setCaseDiaryDoc(null);
     setIntegrityVerified(false);
     setCurrentAccount(acc);
 
@@ -158,12 +160,26 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
     try {
       const resp = await api.generateCaseDiary({
         victimAccount: currentAccount,
-        officerName: 'Investigating Officer',
+        officerName: 'Cyber Crime Cell / Investigating Officer',
       });
+      setCaseDiaryDoc(resp);
       setActionMessage({
         type: 'success',
         text: `Rule 172 Case Diary synthesized: ${resp.document_id}`,
       });
+
+      // Also persist to legal documents vault register
+      try {
+        const saved = localStorage.getItem('anvitrace_generated_documents');
+        const docs = saved ? JSON.parse(saved) : [];
+        const newEntry = {
+          type: 'case_diary' as const,
+          target: currentAccount,
+          doc: resp,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        };
+        localStorage.setItem('anvitrace_generated_documents', JSON.stringify([newEntry, ...docs]));
+      } catch { }
     } catch (err: any) {
       setActionMessage({
         type: 'error',
@@ -479,10 +495,11 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
                 type="button"
                 onClick={handleGenerateCaseDiary}
                 disabled={isActionLoading}
-                className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200 transition-colors disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-xl text-xs font-semibold border border-amber-300 transition-colors disabled:opacity-50 cursor-pointer shadow-2xs"
+                title="Generate downloadable Rule 172 CrPC Case Diary PDF"
               >
                 <FileText size={14} className="text-amber-600" />
-                <span>Case Diary</span>
+                <span>Case Diary (Rule 172 PDF)</span>
               </button>
               <button
                 type="button"
@@ -534,15 +551,65 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
                 </p>
               </div>
             </div>
-            <a
-              href={api.getDocumentDownloadUrl(freezeNoticeDoc.document_id)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-2 transition-colors whitespace-nowrap"
-            >
-              <Download size={14} />
-              <span>Download Notice PDF</span>
-            </a>
+            <div className="flex items-center gap-2">
+              <a
+                href={api.getDocumentDownloadUrl(freezeNoticeDoc.document_id)}
+                target="_blank"
+                download={`${freezeNoticeDoc.document_id}.pdf`}
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-2 transition-colors whitespace-nowrap cursor-pointer"
+              >
+                <Download size={14} />
+                <span>Download Notice PDF</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => setFreezeNoticeDoc(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                title="Dismiss"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Generated Case Diary Download Banner */}
+        {caseDiaryDoc && (
+          <div className="p-4 bg-gradient-to-r from-amber-50/90 via-slate-50 to-amber-100/60 border border-amber-300 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs animate-in fade-in duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center shadow-xs">
+                <FileText size={20} />
+              </div>
+              <div>
+                <h4 className="font-bold text-amber-950 text-sm">
+                  Official Investigation Case Diary Synthesized (Rule 172 CrPC)
+                </h4>
+                <p className="text-xs text-amber-800 font-mono mt-0.5">
+                  Doc ID: <span className="font-bold text-amber-950">{caseDiaryDoc.document_id}</span> • Victim: {caseDiaryDoc.victim_account || currentAccount} • SHA-256: {caseDiaryDoc.integrity_hash?.slice(0, 16)}...
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href={api.getDocumentDownloadUrl(caseDiaryDoc.document_id)}
+                target="_blank"
+                download={`${caseDiaryDoc.document_id}.pdf`}
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-2 transition-colors whitespace-nowrap cursor-pointer"
+              >
+                <Download size={14} />
+                <span>Download Case Diary PDF</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => setCaseDiaryDoc(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                title="Dismiss"
+              >
+                ✕
+              </button>
+            </div>
           </div>
         )}
 

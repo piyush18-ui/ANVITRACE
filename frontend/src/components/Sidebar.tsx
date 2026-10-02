@@ -52,9 +52,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'documents' as const,
-      label: 'Bank Freeze Notices',
+      label: 'Legal Documents',
       icon: FileCheck2,
-      description: 'Sec. 102 CrPC notice generator',
+      description: 'Sec. 102 Notice & Rule 172 Diary',
     },
   ];
 

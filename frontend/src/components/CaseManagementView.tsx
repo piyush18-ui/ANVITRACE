@@ -21,7 +21,7 @@ interface CaseManagementViewProps {
   onInvestigateAccount: (accountId: string) => void;
   onNavigateToDataset: () => void;
   onNavigateToDocuments: () => void;
-  onNavigateToNotice?: (accountId: string) => void;
+  onNavigateToNotice?: (accountId: string, docType?: 'freeze_requisition' | 'case_diary') => void;
   onGoBack?: () => void;
 }
 
@@ -493,7 +493,7 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
                       localStorage.setItem('anvitrace_active_case', JSON.stringify(docket));
                     } catch { }
                     if (onNavigateToNotice) {
-                      onNavigateToNotice(docket.targetAccount);
+                      onNavigateToNotice(docket.targetAccount, 'freeze_requisition');
                     } else {
                       onNavigateToDocuments();
                     }
@@ -503,6 +503,24 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
                 >
                   <ShieldAlert size={14} />
                   <span>Notice</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    try {
+                      localStorage.setItem('anvitrace_active_case', JSON.stringify(docket));
+                    } catch { }
+                    if (onNavigateToNotice) {
+                      onNavigateToNotice(docket.targetAccount, 'case_diary');
+                    } else {
+                      onNavigateToDocuments();
+                    }
+                  }}
+                  className="py-2 px-3 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-bold transition-colors shadow-xs flex items-center gap-1 cursor-pointer"
+                  title="Generate Rule 172 CrPC Case Diary for Case"
+                >
+                  <FileText size={14} className="text-amber-700" />
+                  <span>Diary</span>
                 </button>
               </div>
             </div>

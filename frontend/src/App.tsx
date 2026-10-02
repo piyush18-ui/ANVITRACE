@@ -42,6 +42,7 @@ export const App: React.FC = () => {
   const [historyStack, setHistoryStack] = useState<NavigationState[]>([]);
   const [backendOnline, setBackendOnline] = useState<boolean>(false);
   const [datasetId, setDatasetId] = useState<string | undefined>(undefined);
+  const [selectedDocType, setSelectedDocType] = useState<'freeze_requisition' | 'case_diary'>('freeze_requisition');
 
   // Authentication State
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
@@ -204,7 +205,10 @@ export const App: React.FC = () => {
     navigateTo('investigate', acc);
   };
 
-  const handleNavigateToNotice = (acc: string) => {
+  const handleNavigateToNotice = (acc: string, docType?: 'freeze_requisition' | 'case_diary') => {
+    if (docType) {
+      setSelectedDocType(docType);
+    }
     navigateTo('documents', acc);
   };
 
@@ -289,10 +293,11 @@ export const App: React.FC = () => {
             />
           )}
 
-          {/* 4. Bank Freeze Notice Generator: Enter ID -> Section 102 CrPC PDF format */}
+          {/* 4. Bank Freeze Notice & Case Diary Generator: Enter ID -> PDF format */}
           {activeTab === 'documents' && (
             <DocumentsView
               initialAccountId={selectedAccountId}
+              initialDocType={selectedDocType}
               onInvestigateAccount={handleSelectAccount}
               onGoBack={handleGoBack}
             />
