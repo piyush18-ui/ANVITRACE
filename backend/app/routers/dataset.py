@@ -140,3 +140,30 @@ async def get_dataset_statistics(
             detail=f"Dataset '{dataset_id}' not found.",
         )
     return stats
+
+
+@router.post(
+    "/reset",
+    summary="Clear all ingested datasets and transaction records",
+)
+async def reset_dataset():
+    """Clear all ingested transactions, datasets, and analytical features from DuckDB."""
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM legal_documents;")
+        conn.execute("DELETE FROM evidence_snapshots;")
+        conn.execute("DELETE FROM investigation_snapshots;")
+        conn.execute("DELETE FROM transaction_features;")
+        conn.execute("DELETE FROM account_features;")
+        conn.execute("DELETE FROM transactions;")
+        conn.execute("DELETE FROM ingestion_runs;")
+        conn.execute("DELETE FROM datasets;")
+        logger.info("Successfully cleared all ingested dataset tables and transaction records from DuckDB.")
+        return {"status": "success", "message": "All ingested dataset tables and transaction records have been cleared."}
+    except Exception as e:
+        logger.error(f"Failed to reset database: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to reset database: {e}",
+        )
+

@@ -228,6 +228,14 @@ export const api = {
     return res.json();
   },
 
+  resetDataset: async (): Promise<{ status: string; message: string }> => {
+    const res = await fetch(`${API_BASE}/dataset/reset`, {
+      method: 'POST',
+    });
+    if (!res.ok) throw new Error('Dataset reset failed');
+    return res.json();
+  },
+
   // 3. Accounts & Investigations
   getAccount: async (accountId: string, datasetId?: string): Promise<AccountProfile> => {
     const url = datasetId ? `${API_BASE}/accounts/${accountId}?dataset_id=${datasetId}` : `${API_BASE}/accounts/${accountId}`;

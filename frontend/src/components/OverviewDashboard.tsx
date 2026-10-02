@@ -216,8 +216,21 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             <tbody className="divide-y divide-outline-variant/15 text-on-surface">
               {candidates.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-on-surface-variant">
-                    {loading ? 'Scanning dataset for fraudulent accounts...' : hasData ? 'No suspicious mule accounts detected in this dataset.' : 'No investigation data available. Upload a dataset to begin.'}
+                  <td colSpan={7} className="py-12 text-center text-on-surface-variant font-data-mono">
+                    <div className="space-y-2">
+                      <p className="text-xs">
+                        {loading ? 'Scanning dataset for fraudulent accounts...' : 'No dataset active. Register a case docket and attach an evidence CSV to begin.'}
+                      </p>
+                      {onNavigateToCases && (
+                        <button
+                          type="button"
+                          onClick={onNavigateToCases}
+                          className="mt-2 px-4 py-1.5 bg-primary-container hover:bg-black text-on-primary rounded text-xs font-semibold shadow-xs"
+                        >
+                          Register Case &amp; Ingest Evidence CSV →
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (
