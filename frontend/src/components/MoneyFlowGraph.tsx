@@ -142,9 +142,9 @@ export const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({
       {/* SVG Canvas Area */}
       <div className="relative h-[440px] bg-slate-50/50 overflow-hidden select-none">
         {filteredEdges.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-on-surface-variant gap-2">
+          <div className="h-full flex flex-col items-center justify-center text-on-surface-variant gap-2 font-data-mono">
             <span className="material-symbols-outlined text-[36px] text-outline">account_tree</span>
-            <p className="text-[13px] font-medium">No directional money flow detected for current criteria.</p>
+            <p className="text-xs font-semibold text-on-surface">No transaction graph available for this investigation.</p>
             <span className="text-[11px] text-outline">Execute a trace or adjust hop / volume filters above.</span>
           </div>
         ) : (

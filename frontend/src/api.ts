@@ -3,7 +3,7 @@
  * Connects directly to the 14 FastAPI backend endpoints.
  */
 
-const API_BASE = '/api';
+const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || '/api';
 
 export interface DatasetStatus {
   dataset_id: string;
@@ -330,9 +330,9 @@ export const api = {
       body: JSON.stringify({
         victim_account: params.victimAccount,
         dataset_id: params.datasetId,
-        officer_name: params.officerName || 'Inspector D. Vance',
-        officer_designation: params.officerDesignation || 'Cyber Crime Forensic Cell',
-        case_reference: params.caseReference || 'CASE-2024-089A',
+        officer_name: params.officerName || 'Investigating Officer',
+        officer_designation: params.officerDesignation || 'Cyber Crime Investigation Cell',
+        case_reference: params.caseReference || 'CASE-FORENSIC-01',
       }),
     });
     if (!res.ok) throw new Error('Case diary generation failed');
@@ -352,9 +352,9 @@ export const api = {
       body: JSON.stringify({
         target_account_id: params.targetAccountId,
         dataset_id: params.datasetId,
-        requesting_officer: params.requestingOfficer || 'Inspector D. Vance',
-        bank_name: params.bankName || 'Target Bank',
-        case_reference: params.caseReference || 'CASE-2024-089A',
+        requesting_officer: params.requestingOfficer || 'Investigating Officer',
+        bank_name: params.bankName || 'Target Banking Institution',
+        case_reference: params.caseReference || 'CASE-FORENSIC-01',
       }),
     });
     if (!res.ok) throw new Error('Freeze requisition generation failed');

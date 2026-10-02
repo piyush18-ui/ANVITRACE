@@ -2,15 +2,12 @@ import React from 'react';
 
 export type ActiveTab =
   | 'overview'
-  | 'investigate'
-  | 'layers'
-  | 'money-trails'
-  | 'risk-analysis'
-  | 'recovery'
   | 'cases'
-  | 'documents'
   | 'dataset-status'
-  | 'settings';
+  | 'investigate'
+  | 'evidence'
+  | 'recovery'
+  | 'documents';
 
 interface SidebarProps {
   activeTab: ActiveTab;
@@ -20,16 +17,13 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, backendOnline }) => {
   const navItems: Array<{ id: ActiveTab; label: string; icon: string }> = [
-    { id: 'overview', label: 'Overview', icon: 'dashboard' },
+    { id: 'overview', label: 'Dashboard', icon: 'dashboard' },
+    { id: 'cases', label: 'Cases', icon: 'verified' },
+    { id: 'dataset-status', label: 'Dataset', icon: 'database' },
     { id: 'investigate', label: 'Investigate', icon: 'person_search' },
-    { id: 'layers', label: 'Layer Detection', icon: 'hub' },
-    { id: 'money-trails', label: 'Money Trails', icon: 'account_tree' },
-    { id: 'risk-analysis', label: 'Risk Analysis', icon: 'warning' },
+    { id: 'evidence', label: 'Evidence', icon: 'fingerprint' },
     { id: 'recovery', label: 'Recovery', icon: 'currency_exchange' },
-    { id: 'cases', label: 'Case Registry', icon: 'verified' },
     { id: 'documents', label: 'Documents', icon: 'folder_special' },
-    { id: 'dataset-status', label: 'Dataset Status', icon: 'database' },
-    { id: 'settings', label: 'Settings', icon: 'tune' },
   ];
 
   return (
@@ -55,7 +49,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, backe
           </div>
         </div>
 
-        {/* Navigation Links */}
+        {/* Minimal Recommended Navigation */}
         <nav className="flex-1 px-3 py-3 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
@@ -63,14 +57,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, backe
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3 px-3.5 py-2 rounded-lg text-xs transition-colors text-left ${
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs transition-colors text-left ${
                   isActive
                     ? 'bg-primary-container text-on-primary font-semibold shadow-sm'
                     : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
                 }`}
               >
                 <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
-                <span className="font-label-lg">{item.label}</span>
+                <span className="font-label-lg text-xs">{item.label}</span>
               </button>
             );
           })}
@@ -82,13 +76,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, backe
         <div className="flex items-center justify-between text-xs">
           <span className="font-semibold text-on-surface flex items-center gap-1.5">
             <span className={`w-2 h-2 rounded-full ${backendOnline ? 'bg-secondary-container animate-pulse' : 'bg-rose-500'}`} />
-            System Online
+            System {backendOnline ? 'Online' : 'Offline'}
           </span>
-          <span className="font-data-mono-sm text-[10px] text-on-surface-variant">v2.4.0</span>
+          <span className="font-data-mono-sm text-[10px] text-on-surface-variant">FastAPI + DuckDB</span>
         </div>
         <div className="flex items-center gap-1 text-on-surface-variant font-data-mono-sm text-[10px] mt-0.5">
           <span className="material-symbols-outlined text-[14px]">lock</span>
-          <span>Node: Air-Gapped Secure</span>
+          <span>Node: Air-Gapped Offline</span>
         </div>
       </div>
     </aside>

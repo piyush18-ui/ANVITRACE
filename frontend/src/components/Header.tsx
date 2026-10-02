@@ -8,7 +8,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  caseReference = 'CASE-2024-089A',
+  caseReference = 'ACTIVE SESSION',
   datasetId,
   backendOnline,
   onSearchTarget,
@@ -19,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
     e.preventDefault();
     if (query.trim() && onSearchTarget) {
       onSearchTarget(query.trim());
+      setQuery('');
     }
   };
 
@@ -27,7 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Left: Brand / Case Breadcrumb */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1.5 text-on-surface-variant font-label-md text-xs">
-          <span className="flex items-center gap-1 hover:text-on-surface cursor-pointer font-semibold">
+          <span className="flex items-center gap-1 font-semibold text-on-surface">
             <span className="material-symbols-outlined text-[16px]">terminal</span>
             ANVITRACE
           </span>
@@ -38,8 +39,8 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-surface-container text-on-surface font-data-mono-sm text-[11px]">
-          <span className="w-1.5 h-1.5 rounded-full bg-secondary-container animate-pulse" />
-          <span>AIR-GAPPED NODE</span>
+          <span className={`w-1.5 h-1.5 rounded-full ${backendOnline ? 'bg-secondary-container animate-pulse' : 'bg-rose-500'}`} />
+          <span>OFFLINE LOCAL AIR-GAP</span>
         </div>
       </div>
 
@@ -47,22 +48,25 @@ export const Header: React.FC<HeaderProps> = ({
       <form onSubmit={handleSubmit} className="flex-1 max-w-md mx-6">
         <div className="relative flex items-center">
           <span className="absolute left-2.5 material-symbols-outlined text-[18px] text-on-surface-variant">
-            manage_search
+            search
           </span>
           <input
             className="w-full bg-surface-container-low pl-9 pr-12 py-1.5 rounded text-on-surface font-data-mono text-xs placeholder:text-on-surface-variant focus:outline-none focus:bg-surface-container border border-outline-variant/20 transition-all"
-            placeholder="Query target: acc:, hash:, ifsc:, upi:"
+            placeholder="Search Account ID to investigate..."
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          <span className="absolute right-2 font-data-mono-sm text-[10px] px-1.5 py-0.5 rounded bg-surface-container-high text-on-surface-variant">
-            ⌘K
-          </span>
+          <button
+            type="submit"
+            className="absolute right-1 px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant text-[11px] font-data-mono hover:text-on-surface"
+          >
+            Enter ↵
+          </button>
         </div>
       </form>
 
-      {/* Right: Telemetry & Lead Officer */}
+      {/* Right: Telemetry & Session Auth */}
       <div className="flex items-center gap-4">
         <div className="hidden md:flex items-center gap-4 text-xs font-data-mono">
           <div className="flex items-center gap-1.5">
@@ -71,24 +75,24 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-primary-container" />
-            <span className="text-on-surface font-medium">
-              Dataset: {datasetId ? datasetId.slice(0, 10) : 'Indexed'}
+            <span className="text-on-surface font-medium truncate max-w-[120px]">
+              Dataset: {datasetId ? datasetId.slice(0, 10) : 'None'}
             </span>
           </div>
         </div>
 
         <div className="h-5 w-px bg-outline-variant/30 hidden md:block" />
 
-        {/* Lead Officer Info */}
+        {/* Authorized Investigator Session Badge */}
         <div className="flex items-center gap-2">
           <div className="flex flex-col items-end">
-            <span className="font-label-md text-xs text-on-surface leading-tight font-semibold">Inv. D. Vance</span>
+            <span className="font-label-md text-xs text-on-surface leading-tight font-semibold">Investigator Console</span>
             <span className="font-data-mono-sm text-[10px] text-secondary leading-tight uppercase font-medium">
-              Forensic Lead #408
+              Authenticated Session
             </span>
           </div>
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary">
-            <span className="material-symbols-outlined text-[18px]">person</span>
+          <div className="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary">
+            <span className="material-symbols-outlined text-[18px]">shield_person</span>
           </div>
         </div>
       </div>
