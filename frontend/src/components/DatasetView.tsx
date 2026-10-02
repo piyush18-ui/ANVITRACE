@@ -153,16 +153,16 @@ export const DatasetView: React.FC = () => {
             <div className="p-3.5 bg-slate-900 text-white rounded-xl shadow-sm space-y-2.5">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold flex items-center gap-2">
-                  <Loader2 size={13} className="animate-spin text-amber-400" />
+                  <Loader2 size={13} className="animate-spin text-white" />
                   <span>Ingesting Evidence Dataset</span>
                 </span>
-                <span className="font-mono font-bold text-amber-400">{uploadProgress?.percent || 5}%</span>
+                <span className="font-mono font-bold text-white">{uploadProgress?.percent || 5}%</span>
               </div>
 
               {/* Progress track */}
               <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden p-0.5 ring-1 ring-slate-700/60">
                 <div
-                  className="h-full bg-gradient-to-r from-amber-400 via-amber-300 to-emerald-400 rounded-full transition-all duration-300 ease-out"
+                  className="h-full bg-white rounded-full transition-all duration-300 ease-out shadow-[0_0_8px_rgba(255,255,255,0.7)]"
                   style={{ width: `${Math.max(4, Math.min(100, uploadProgress?.percent || 5))}%` }}
                 />
               </div>
@@ -172,8 +172,12 @@ export const DatasetView: React.FC = () => {
                   {uploadProgress?.stage || 'Processing transactions...'}
                 </span>
                 {uploadProgress?.total && (
-                  <span className="font-mono shrink-0 ml-2 text-slate-400">
-                    {((uploadProgress.loaded || 0) / (1024 * 1024)).toFixed(1)} / {((uploadProgress.total || 0) / (1024 * 1024)).toFixed(1)} MB
+                  <span className="font-mono shrink-0 ml-2 text-slate-300">
+                    {(uploadProgress.loaded || 0) >= (uploadProgress.total || 0)
+                      ? (uploadProgress.percent || 0) >= 100
+                        ? `${((uploadProgress.total || 0) / (1024 * 1024)).toFixed(1)} MB • Complete`
+                        : `${((uploadProgress.total || 0) / (1024 * 1024)).toFixed(1)} MB • Ingesting`
+                      : `${((uploadProgress.loaded || 0) / (1024 * 1024)).toFixed(1)} / ${((uploadProgress.total || 0) / (1024 * 1024)).toFixed(1)} MB`}
                   </span>
                 )}
               </div>

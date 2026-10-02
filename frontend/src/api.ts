@@ -241,7 +241,7 @@ export const api = {
           const mbTotal = (event.total / (1024 * 1024)).toFixed(1);
           onProgress({
             percent: uploadPercent,
-            stage: `Streaming evidence CSV payload (${mbLoaded} MB / ${mbTotal} MB)...`,
+            stage: `Streaming evidence CSV payload (${mbLoaded} / ${mbTotal} MB)...`,
             loaded: event.loaded,
             total: event.total,
           });
@@ -254,26 +254,31 @@ export const api = {
         if (onProgress) {
           onProgress({
             percent: 55,
-            stage: 'Calculating SHA-256 cryptographic integrity hash...',
+            stage: 'Calculating cryptographic SHA-256 integrity hash...',
             loaded: file.size,
             total: file.size,
           });
           let p = 55;
           processingTimer = setInterval(() => {
-            p += Math.min(6, Math.max(1, Math.floor((95 - p) / 5)));
-            if (p > 95) p = 95;
+            if (p < 98) {
+              const remaining = 98 - p;
+              const step = remaining > 25 ? 4 : remaining > 12 ? 2.5 : remaining > 5 ? 1.2 : 0.4;
+              p = Math.min(98, Math.round((p + step) * 10) / 10);
+            }
             let stageText = 'Validating CSV schema and record delimiters...';
-            if (p > 65 && p <= 80) stageText = 'Processing and normalizing transaction records...';
-            if (p > 80) stageText = 'Indexing transaction graph & building traversal cache...';
+            if (p >= 65 && p < 78) stageText = 'Processing and normalizing transaction records...';
+            else if (p >= 78 && p < 90) stageText = 'Indexing transaction graph & building traversal cache...';
+            else if (p >= 90) stageText = 'Finalizing forensic verification & integrity check...';
+
             if (onProgress) {
               onProgress({
-                percent: p,
+                percent: Math.floor(p),
                 stage: stageText,
                 loaded: file.size,
                 total: file.size,
               });
             }
-          }, 1100);
+          }, 850);
         }
       };
 

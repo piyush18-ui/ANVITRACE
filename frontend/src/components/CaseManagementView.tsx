@@ -206,23 +206,24 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
     const stage = progress?.stage ?? 'Preparing evidence CSV payload...';
     const mbLoaded = progress?.loaded !== undefined ? (progress.loaded / (1024 * 1024)).toFixed(1) : undefined;
     const mbTotal = progress?.total !== undefined ? (progress.total / (1024 * 1024)).toFixed(1) : undefined;
+    const isUploaded = progress?.loaded !== undefined && progress?.total !== undefined && progress.loaded >= progress.total;
 
     return (
       <div className="p-3.5 bg-slate-900 text-white rounded-xl shadow-sm space-y-2.5">
         <div className="flex items-center justify-between text-xs">
           <span className="font-semibold flex items-center gap-2">
-            <Loader2 size={13} className="animate-spin text-amber-400" />
+            <Loader2 size={13} className="animate-spin text-white" />
             <span className="truncate max-w-[240px]">
               {filename ? `Ingesting: ${filename}` : 'Ingesting Evidence Dataset'}
             </span>
           </span>
-          <span className="font-mono font-bold text-amber-400">{percent}%</span>
+          <span className="font-mono font-bold text-white">{percent}%</span>
         </div>
 
         {/* Progress track */}
         <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden p-0.5 ring-1 ring-slate-700/60">
           <div
-            className="h-full bg-gradient-to-r from-amber-400 via-amber-300 to-emerald-400 rounded-full transition-all duration-300 ease-out"
+            className="h-full bg-white rounded-full transition-all duration-300 ease-out shadow-[0_0_8px_rgba(255,255,255,0.7)]"
             style={{ width: `${Math.max(4, Math.min(100, percent))}%` }}
           />
         </div>
@@ -230,8 +231,8 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
         <div className="flex items-center justify-between text-[11px] text-slate-400">
           <span className="truncate max-w-[280px] font-medium text-slate-300">{stage}</span>
           {mbTotal && (
-            <span className="font-mono shrink-0 ml-2 text-slate-400">
-              {mbLoaded} / {mbTotal} MB
+            <span className="font-mono shrink-0 ml-2 text-slate-300">
+              {isUploaded ? (percent >= 100 ? `${mbTotal} MB • Complete` : `${mbTotal} MB • Ingesting`) : `${mbLoaded} / ${mbTotal} MB`}
             </span>
           )}
         </div>
