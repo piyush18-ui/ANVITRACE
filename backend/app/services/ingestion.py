@@ -315,12 +315,10 @@ class IngestionService:
         index_manager = ForensicIndexManager(dataset_id)
         index_paths = index_manager.build_indexes(self.conn)
 
-        # Build DuckDB secondary indexes in parallel on already-loaded columnar data
+        # Build essential DuckDB secondary indexes in parallel on already-loaded columnar data
         self.conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_tx_dataset_id ON transactions (dataset_id);
             CREATE INDEX IF NOT EXISTS idx_tx_sender_acc ON transactions (Sender_Account);
             CREATE INDEX IF NOT EXISTS idx_tx_receiver_acc ON transactions (Receiver_Account);
-            CREATE INDEX IF NOT EXISTS idx_tx_timestamp ON transactions (Timestamp);
             CREATE INDEX IF NOT EXISTS idx_tx_transaction_id ON transactions (Transaction_ID);
         """)
         t6_end = time.perf_counter()

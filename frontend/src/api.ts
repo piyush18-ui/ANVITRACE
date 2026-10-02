@@ -253,32 +253,43 @@ export const api = {
       xhr.upload.onload = () => {
         if (onProgress) {
           onProgress({
-            percent: 55,
-            stage: 'Calculating cryptographic SHA-256 integrity hash...',
+            percent: 50,
+            stage: 'Evidence uploaded. Initializing vectorized ingestion...',
             loaded: file.size,
             total: file.size,
           });
-          let p = 55;
+          let p = 50;
+          let elapsedSec = 0;
           processingTimer = setInterval(() => {
-            if (p < 98) {
-              const remaining = 98 - p;
-              const step = remaining > 25 ? 4 : remaining > 12 ? 2.5 : remaining > 5 ? 1.2 : 0.4;
-              p = Math.min(98, Math.round((p + step) * 10) / 10);
+            elapsedSec += 1;
+            // Smoothly advance through realistic phases
+            if (p < 94) {
+              p += 1.0;
+            } else if (p < 99) {
+              p += 0.2;
             }
-            let stageText = 'Validating CSV schema and record delimiters...';
-            if (p >= 65 && p < 78) stageText = 'Processing and normalizing transaction records...';
-            else if (p >= 78 && p < 90) stageText = 'Indexing transaction graph & building traversal cache...';
-            else if (p >= 90) stageText = 'Finalizing forensic verification & integrity check...';
+            if (p > 99) p = 99;
+
+            let stageText = `Validating CSV schema & delimiters (${elapsedSec}s)...`;
+            if (p >= 58 && p < 72) {
+              stageText = `Normalizing records & streaming into DuckDB (${elapsedSec}s)...`;
+            } else if (p >= 72 && p < 86) {
+              stageText = `Building temporal & forensic graph indexes (${elapsedSec}s)...`;
+            } else if (p >= 86 && p < 94) {
+              stageText = `Precomputing account analytics & risk features (${elapsedSec}s)...`;
+            } else if (p >= 94) {
+              stageText = `Finalizing forensic verification & integrity check (${elapsedSec}s)...`;
+            }
 
             if (onProgress) {
               onProgress({
-                percent: Math.floor(p),
+                percent: Math.min(99, Math.floor(p)),
                 stage: stageText,
                 loaded: file.size,
                 total: file.size,
               });
             }
-          }, 850);
+          }, 1000);
         }
       };
 

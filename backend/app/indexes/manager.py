@@ -110,7 +110,7 @@ class ForensicIndexManager:
                     FROM transactions
                     WHERE dataset_id = '{self.dataset_id}'
                 )
-                ORDER BY account_id, Timestamp ASC
+                ORDER BY account_id
             ) TO '{self.timeline_index_path.as_posix()}' (FORMAT PARQUET, COMPRESSION SNAPPY);
             """
         )

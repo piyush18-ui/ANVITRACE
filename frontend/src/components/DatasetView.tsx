@@ -1,17 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import type { DatasetStatus, DatasetStats } from '../api';
-import { Database, UploadCloud, CheckCircle2, AlertCircle, RefreshCw, FileSpreadsheet, Loader2, ArrowLeft } from 'lucide-react';
+import { Database, UploadCloud, CheckCircle2, AlertCircle, RefreshCw, FileSpreadsheet, Loader2 } from 'lucide-react';
 
-interface DatasetViewProps {
-  onGoBack?: () => void;
-  previousLabel?: string;
-}
-
-export const DatasetView: React.FC<DatasetViewProps> = ({
-  onGoBack,
-  previousLabel,
-}) => {
+export const DatasetView: React.FC = () => {
   const [status, setStatus] = useState<DatasetStatus | null>(null);
   const [stats, setStats] = useState<DatasetStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,22 +77,9 @@ export const DatasetView: React.FC<DatasetViewProps> = ({
       {/* Header */}
       <div className="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/30 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 flex-wrap mb-1">
-            {onGoBack && (
-              <button
-                type="button"
-                onClick={onGoBack}
-                className="inline-flex items-center gap-1.5 px-3 py-1 bg-surface-container hover:bg-surface-container-high text-on-surface rounded text-xs font-semibold border border-outline-variant/30 transition-all shadow-xs cursor-pointer group mr-1"
-                title={previousLabel ? `Back to ${previousLabel}` : 'Go back to previous screen'}
-              >
-                <ArrowLeft size={13} className="transition-transform group-hover:-translate-x-0.5 text-on-surface-variant" />
-                <span>Back{previousLabel ? `: ${previousLabel}` : ''}</span>
-              </button>
-            )}
-            <span className="text-[11px] font-data-mono font-bold uppercase tracking-wider text-outline">
-              INGESTION &amp; FORENSIC PROVENANCE
-            </span>
-          </div>
+          <span className="text-[11px] font-data-mono font-bold uppercase tracking-wider text-outline">
+            INGESTION &amp; FORENSIC PROVENANCE
+          </span>
           <h1 className="font-headline-lg text-2xl font-bold text-on-surface mt-0.5">
             Dataset Ingestion &amp; Health
           </h1>
