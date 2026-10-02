@@ -156,7 +156,7 @@ export const App: React.FC = () => {
         />
 
         {/* Scrollable View Area */}
-        <main className="flex-1 overflow-y-auto px-8 py-6 bg-slate-50">
+        <main className="flex-1 overflow-y-auto scroll-smooth px-8 py-6 bg-slate-50">
           {/* 1. Dashboard: Fraudulent accounts board & system overview */}
           {activeTab === 'overview' && (
             <OverviewDashboard

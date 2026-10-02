@@ -102,7 +102,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   );
 
   return (
-    <div className="space-y-6 pb-16 select-none max-w-7xl mx-auto">
+    <div className="space-y-6 pb-28 select-none max-w-7xl mx-auto">
       {/* 4 Sleek Forensic KPI Telemetry Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI 1: Ingested Transactions */}
@@ -362,10 +362,10 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           </div>
         </div>
 
-        {/* Table Content */}
-        <div className="overflow-x-auto">
+        {/* Table Content - Vertically and horizontally scrollable with sticky header */}
+        <div className="overflow-x-auto overflow-y-auto max-h-[560px]">
           <table className="w-full text-left text-xs font-medium">
-            <thead className="bg-slate-50/75 border-b border-slate-200/80 text-slate-500 uppercase text-[10px] tracking-wider font-semibold">
+            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[10px] tracking-wider font-semibold sticky top-0 z-10 shadow-xs">
               <tr>
                 <th className="py-3 px-6">Suspect Account</th>
                 <th className="py-3 px-4 text-right">Total Inflow</th>
@@ -514,6 +514,16 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Table Footer with Count & Scroll Helper */}
+        <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium">
+          <span>
+            Showing <strong className="text-slate-800 font-bold">{filteredCandidates.length}</strong> high-risk mule candidates
+          </span>
+          <span className="text-[11px] text-slate-400">
+            Scroll table or whole page to explore all candidates
+          </span>
         </div>
       </div>
     </div>
