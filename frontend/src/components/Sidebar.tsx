@@ -6,7 +6,9 @@ import {
   FileCheck2,
   ShieldCheck,
   Cpu,
+  LogOut,
 } from 'lucide-react';
+import type { OfficerProfile } from './AuthModal';
 
 export type ActiveTab =
   | 'overview'
@@ -19,9 +21,16 @@ interface SidebarProps {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
   backendOnline?: boolean;
+  officer?: OfficerProfile | null;
+  onLogout?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
+export const Sidebar: React.FC<SidebarProps> = ({
+  activeTab,
+  setActiveTab,
+  officer,
+  onLogout,
+}) => {
   const navItems = [
     {
       id: 'overview' as const,
@@ -126,6 +135,42 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
             );
           })}
         </nav>
+      </div>
+
+      {/* Bottom Officer Session & Sign Out */}
+      <div className="p-3.5 border-t border-slate-100 bg-slate-50/70 flex items-center justify-between gap-2">
+        {officer ? (
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className={`w-7 h-7 rounded-lg flex items-center justify-center font-mono font-bold text-[10px] shrink-0 ${officer.themeColor}`}
+            >
+              {officer.initials}
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[11px] font-bold text-slate-800 truncate leading-tight">
+                {officer.name.split(' ')[0]} {officer.name.split(' ')[1]}
+              </span>
+              <span className="text-[9px] font-mono text-slate-500 leading-tight">
+                #{officer.badge}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="text-[11px] text-slate-500 font-medium">Session Active</div>
+        )}
+
+        {onLogout && (
+          <button
+            type="button"
+            onClick={onLogout}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-slate-600 hover:text-red-700 hover:bg-red-50 border border-slate-200 hover:border-red-200 text-xs font-semibold transition-all cursor-pointer shadow-2xs group shrink-0"
+            title="Log out and return to landing page"
+            id="sidebar-logout-button"
+          >
+            <LogOut size={13} className="text-slate-400 group-hover:text-red-600 transition-colors" />
+            <span>Log Out</span>
+          </button>
+        )}
       </div>
     </aside>
   );

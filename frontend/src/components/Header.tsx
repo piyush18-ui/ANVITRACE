@@ -6,7 +6,10 @@ import {
   ChevronRight,
   Terminal,
   ArrowLeft,
+  LogOut,
 } from 'lucide-react';
+
+import type { OfficerProfile } from './AuthModal';
 
 interface HeaderProps {
   caseReference?: string;
@@ -16,6 +19,8 @@ interface HeaderProps {
   canGoBack?: boolean;
   onGoBack?: () => void;
   backLabel?: string;
+  officer?: OfficerProfile | null;
+  onLogout?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -26,6 +31,8 @@ export const Header: React.FC<HeaderProps> = ({
   canGoBack,
   onGoBack,
   backLabel = 'Back',
+  officer,
+  onLogout,
 }) => {
   const [query, setQuery] = useState('');
 
@@ -101,19 +108,38 @@ export const Header: React.FC<HeaderProps> = ({
 
         <div className="h-5 w-px bg-slate-200 hidden md:block" />
 
-        {/* Authorized Investigator Session Badge */}
-        <div className="flex items-center gap-2.5 pl-1">
-          <div className="flex flex-col items-end">
-            <span className="text-xs text-slate-900 leading-tight font-bold tracking-tight">
-              Investigator Console
-            </span>
-            <span className="text-[10px] text-amber-600 leading-tight font-semibold tracking-wide uppercase">
-              Authenticated Session
-            </span>
+        {/* Authorized Investigator Session Badge & Logout */}
+        <div className="flex items-center gap-3 pl-1">
+          <div className="flex items-center gap-2.5">
+            <div className="flex flex-col items-end">
+              <span className="text-xs text-slate-900 leading-tight font-bold tracking-tight">
+                {officer ? officer.name : 'Investigator Console'}
+              </span>
+              <span className="text-[10px] text-amber-600 leading-tight font-semibold tracking-wide uppercase">
+                {officer ? `BADGE #${officer.badge}` : 'Authenticated Session'}
+              </span>
+            </div>
+            <div
+              className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs ring-1 ring-slate-800 shadow-xs ${
+                officer ? officer.themeColor : 'bg-slate-900 text-amber-400'
+              }`}
+            >
+              {officer ? officer.initials : <UserCheck size={16} className="text-amber-400" />}
+            </div>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-xs ring-1 ring-slate-800">
-            <UserCheck size={16} className="text-amber-400" />
-          </div>
+
+          {onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-red-50 text-slate-700 hover:text-red-700 border border-slate-200 hover:border-red-200 text-xs font-bold transition-all cursor-pointer shadow-2xs group shrink-0"
+              title="Log out and return to landing page"
+              id="header-logout-btn"
+            >
+              <LogOut size={13} className="text-slate-400 group-hover:text-red-600 transition-colors" />
+              <span>Log Out</span>
+            </button>
+          )}
         </div>
       </div>
     </header>
