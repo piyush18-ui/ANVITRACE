@@ -29,28 +29,23 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({ onLaunchInvestigat
     <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-sm border-b border-zinc-200 select-none">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Brand Logo & Subtitle */}
+          {/* Brand Logo & Brand Name */}
           <div className="flex items-center gap-3">
             <a href="#hero" className="flex items-center gap-2.5 group">
-              <div className="w-9 h-9 rounded-xl border border-zinc-200/80 p-0.5 flex items-center justify-center bg-white shadow-2xs group-hover:scale-105 transition-transform duration-200 shrink-0 overflow-hidden">
+              <div className="w-10 h-10 rounded-xl border border-zinc-200/90 p-1 flex items-center justify-center bg-white shadow-xs group-hover:scale-105 transition-transform duration-200 shrink-0 overflow-hidden">
                 <img 
                   src="/anvitrace-icon.png" 
                   alt="Anvitrace Logo" 
                   className="w-full h-full object-contain" 
                 />
               </div>
-              <div className="flex flex-col">
-                <span className="font-extrabold text-sm tracking-tight text-zinc-950 uppercase font-heading">
-                  ANVITRACE
-                </span>
-                <span className="text-[9px] font-semibold text-zinc-500 tracking-wider uppercase">
-                  FINANCIAL FORENSICS PLATFORM
-                </span>
-              </div>
+              <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-zinc-950 uppercase font-heading">
+                ANVITRACE
+              </span>
             </a>
 
-            <div className="hidden lg:flex items-center ml-4 pl-4 border-l border-zinc-200 text-[11px] font-medium text-zinc-700 bg-zinc-100 px-2.5 py-0.5 rounded-md border border-zinc-200/80">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5" />
+            <div className="hidden lg:flex items-center ml-4 pl-4 border-l border-zinc-200 text-xs font-semibold text-zinc-700 bg-zinc-100 px-3 py-1 rounded-md border border-zinc-200/80">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2" />
               100% Offline Core
             </div>
           </div>

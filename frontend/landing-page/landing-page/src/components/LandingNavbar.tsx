@@ -29,22 +29,19 @@ export const LandingNavbar: React.FC<LandingNavbarProps> = ({ onLaunchInvestigat
     <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-sm border-b border-zinc-200 select-none">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Brand Logo & Subtitle */}
+          {/* Brand Logo & Brand Name */}
           <div className="flex items-center gap-3">
             <a href="#hero" className="flex items-center gap-2.5 group">
-              <img 
-                src="/anvitrace-icon.png" 
-                alt="Anvitrace Logo" 
-                className="w-8 h-8 object-contain transition-transform duration-200 group-hover:scale-105" 
-              />
-              <div className="flex flex-col">
-                <span className="font-extrabold text-sm tracking-tight text-zinc-950 uppercase font-heading">
-                  ANVITRACE
-                </span>
-                <span className="text-[9px] font-semibold text-zinc-500 tracking-wider uppercase">
-                  FINANCIAL FORENSICS PLATFORM
-                </span>
+              <div className="w-10 h-10 rounded-xl border border-zinc-200/90 p-1 flex items-center justify-center bg-white shadow-xs group-hover:scale-105 transition-transform duration-200 shrink-0 overflow-hidden">
+                <img 
+                  src="/anvitrace-icon.png" 
+                  alt="Anvitrace Logo" 
+                  className="w-full h-full object-contain" 
+                />
               </div>
+              <span className="font-extrabold text-xl sm:text-2xl tracking-tight text-zinc-950 uppercase font-heading">
+                ANVITRACE
+              </span>
             </a>
 
             <div className="hidden lg:flex items-center ml-4 pl-4 border-l border-zinc-200 text-[11px] font-medium text-zinc-700 bg-zinc-100 px-2.5 py-0.5 rounded-md border border-zinc-200/80">

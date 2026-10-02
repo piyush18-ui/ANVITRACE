@@ -1,4 +1,5 @@
 import React from 'react';
+import '../index.css';
 import { LandingNavbar } from './LandingNavbar';
 import { HeroSection } from './HeroSection';
 import { ProblemSolutionSection } from './ProblemSolutionSection';

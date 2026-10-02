@@ -151,7 +151,7 @@ export const ProductShowcaseSection: React.FC<ProductShowcaseSectionProps> = ({ 
                     </span>
                   </div>
                   <p className="text-xs text-zinc-500 mt-0.5">
-                    Temporal window: 2026-09-15 14:00 to 2026-09-20 18:30 (15 days analysis)
+                    Temporal window: 2026-09-15 14:00 to 2026-09-20 18:30 (Multi-hop temporal trace)
                   </p>
                 </div>
 

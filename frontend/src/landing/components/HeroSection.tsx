@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Play, Database, Network, Clock, ShieldCheck, Building2, Landmark, Shield, Cpu } from 'lucide-react';
+import { ArrowRight, Play, Database, Network, ShieldCheck, Building2, Landmark, Shield, Cpu } from 'lucide-react';
 import { Globe } from '../ui/globe';
 
 interface HeroSectionProps {
@@ -19,12 +19,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onLaunchInvestigation 
       label: 'Money Tracing',
       sub: 'Temporal Layering',
       icon: Network,
-    },
-    {
-      value: '15 Days',
-      label: 'Investigation Window',
-      sub: 'Multi-layer Window',
-      icon: Clock,
     },
     {
       value: '100% Local',
@@ -93,8 +87,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onLaunchInvestigation 
               </button>
             </div>
 
-            {/* 4 Compact Proof Metrics */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full pt-6 border-t border-zinc-200">
+            {/* 3 Compact Proof Metrics */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 w-full pt-6 border-t border-zinc-200">
               {proofMetrics.map((metric) => {
                 const Icon = metric.icon;
                 return (
@@ -147,19 +141,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onLaunchInvestigation 
         </div>
 
         {/* Built for Law Enforcement Trust Strip */}
-        <div className="mt-16 pt-8 border-t border-zinc-200">
+        <div className="mt-14 pt-8 border-t border-zinc-200">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-zinc-950 text-white flex items-center justify-center shadow-xs">
-                <Shield className="w-4 h-4 text-amber-400" />
+            <div>
+              <div className="text-xs font-bold text-zinc-800 uppercase tracking-wider font-heading">
+                Built for Law Enforcement &amp; Forensics Investigations
               </div>
-              <div>
-                <div className="text-xs font-bold text-zinc-950 uppercase tracking-wider">
-                  Built for Law Enforcement &amp; Forensics Investigations
-                </div>
-                <div className="text-xs text-zinc-500">
-                  Engineered specifically for cyber cells, police commissionerates and bank audit teams.
-                </div>
+              <div className="text-xs text-zinc-500 mt-0.5 font-sans">
+                Engineered specifically for cyber cells, police commissionerates and bank audit teams.
               </div>
             </div>
 

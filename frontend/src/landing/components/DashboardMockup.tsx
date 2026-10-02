@@ -241,7 +241,7 @@ export const DashboardMockup: React.FC = () => {
             <div className="mt-3 pt-2 border-t border-zinc-200 flex items-center justify-between text-xs">
               <div>
                 <div className="text-[10px] font-bold text-zinc-800 uppercase tracking-tight">
-                  Transaction Timeline (15 Days)
+                  Transaction Timeline (Chronological Flow)
                 </div>
                 <div className="flex items-center gap-3 text-[10px] text-zinc-500 mt-0.5">
                   <span className="flex items-center gap-1">
