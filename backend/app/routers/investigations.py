@@ -16,6 +16,29 @@ investigation_router = APIRouter(prefix="/investigations", tags=["investigations
 
 
 @account_router.get(
+    "/search",
+    summary="Search accounts by prefix or fuzzy match in dataset",
+)
+async def search_accounts(
+    query: str = Query("", description="Account ID query or prefix"),
+    dataset_id: str | None = Query(None, description="Optional dataset ID. Defaults to latest dataset."),
+    limit: int = Query(15, ge=1, le=50),
+):
+    """Search accounts by prefix or substring for autocomplete and candidate suggestion."""
+    conn = get_connection()
+    repo_ds = DatasetRepository(conn)
+    if not dataset_id:
+        latest = repo_ds.get_latest_dataset()
+        if not latest:
+            return {"results": [], "dataset_id": ""}
+        dataset_id = latest["dataset_id"]
+
+    repo_acc = AccountRepository(conn)
+    results = repo_acc.search_accounts(query=query, dataset_id=dataset_id, limit=limit)
+    return {"results": results, "dataset_id": dataset_id}
+
+
+@account_router.get(
     "/{account_id}",
     response_model=AccountSummaryResponse,
     summary="Get account profile, precomputed features, and net flow summary",

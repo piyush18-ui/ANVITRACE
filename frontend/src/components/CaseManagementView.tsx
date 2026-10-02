@@ -52,6 +52,7 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
   onNavigateToDataset,
   onNavigateToDocuments,
   onNavigateToNotice,
+  onGoBack,
 }) => {
   const [cases, setCases] = useState<CaseDocket[]>(() => {
     try {
@@ -376,9 +377,9 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredCases.map((docket) => (
+          {filteredCases.map((docket, idx) => (
             <div
-              key={docket.id}
+              key={`${docket.id}-${idx}`}
               className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-4 hover:border-slate-300 transition-all hover:shadow-sm"
             >
               <div className="space-y-3">

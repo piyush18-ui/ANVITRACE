@@ -217,6 +217,7 @@ class TemporalTraversalEngine:
         initial_tx_id: str | None = None,
     ) -> dict[str, Any] | None:
         """Find victim transaction in DuckDB."""
+        clean_acc = victim_account.strip().upper()
         if initial_tx_id:
             row = self.conn.execute(
                 """
@@ -234,10 +235,10 @@ class TemporalTraversalEngine:
                 SELECT record_id, Transaction_ID, Sender_Account, Receiver_Account,
                        Amount, Timestamp, Payment_Mode, source_row
                 FROM transactions
-                WHERE Sender_Account = ? AND dataset_id = ?
+                WHERE (UPPER(Sender_Account) = ? OR Sender_Account = ?) AND dataset_id = ?
                 ORDER BY Timestamp ASC LIMIT 1
                 """,
-                [victim_account, self.dataset_id],
+                [clean_acc, clean_acc, self.dataset_id],
             ).fetchone()
 
         if not row:
@@ -246,10 +247,10 @@ class TemporalTraversalEngine:
                 SELECT record_id, Transaction_ID, Sender_Account, Receiver_Account,
                        Amount, Timestamp, Payment_Mode, source_row
                 FROM transactions
-                WHERE Receiver_Account = ? AND dataset_id = ?
+                WHERE (UPPER(Receiver_Account) = ? OR Receiver_Account = ?) AND dataset_id = ?
                 ORDER BY Timestamp ASC LIMIT 1
                 """,
-                [victim_account, self.dataset_id],
+                [clean_acc, clean_acc, self.dataset_id],
             ).fetchone()
 
         if not row:
@@ -269,15 +270,16 @@ class TemporalTraversalEngine:
 
     def get_incoming_transactions(self, account_id: str) -> list[dict[str, Any]]:
         """Fetch all incoming transactions where funds were transferred to this account."""
+        clean_acc = account_id.strip().upper()
         rows = self.conn.execute(
             """
             SELECT record_id, Transaction_ID, Sender_Account, Receiver_Account,
                    CAST(Amount AS DOUBLE), Timestamp, Payment_Mode, source_row
             FROM transactions
-            WHERE Receiver_Account = ? AND dataset_id = ?
+            WHERE (UPPER(Receiver_Account) = ? OR Receiver_Account = ?) AND dataset_id = ?
             ORDER BY Timestamp ASC
             """,
-            [account_id, self.dataset_id],
+            [clean_acc, clean_acc, self.dataset_id],
         ).fetchall()
         inflows = []
         for r in rows:
@@ -303,8 +305,9 @@ class TemporalTraversalEngine:
 
     def _fetch_outgoing_candidates(self, account_id: str) -> list[dict[str, Any]]:
         """Fetch outgoing candidate edges using indexed Parquet scan or DuckDB fallback."""
+        clean_acc = account_id.strip().upper()
         # 1. Try Parquet index
-        edges_df = self.index_manager.get_outgoing_edges(account_id)
+        edges_df = self.index_manager.get_outgoing_edges(clean_acc)
         if not edges_df.is_empty():
             candidates: list[dict[str, Any]] = []
             for r in edges_df.iter_rows(named=True):
@@ -329,10 +332,10 @@ class TemporalTraversalEngine:
             SELECT record_id, Transaction_ID, Receiver_Account, CAST(Amount AS DOUBLE),
                    Timestamp, Payment_Mode
             FROM transactions
-            WHERE Sender_Account = ? AND dataset_id = ?
+            WHERE (UPPER(Sender_Account) = ? OR Sender_Account = ?) AND dataset_id = ?
             ORDER BY Timestamp ASC
             """,
-            [account_id, self.dataset_id],
+            [clean_acc, clean_acc, self.dataset_id],
         ).fetchall()
 
         candidates = []

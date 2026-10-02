@@ -18,9 +18,125 @@ class AccountRepository:
     def __init__(self, conn: duckdb.DuckDBPyConnection):
         self.conn = conn
 
+    def resolve_canonical_account_id(self, account_id: str, dataset_id: str) -> str:
+        """Resolve account ID to canonical case in DuckDB, supporting case-insensitivity and suffix matching."""
+        clean = account_id.strip()
+        if not clean:
+            return clean
+
+        # 1. Exact match in account_features
+        row = self.conn.execute(
+            "SELECT account_id FROM account_features WHERE account_id = ? AND dataset_id = ? LIMIT 1",
+            [clean, dataset_id],
+        ).fetchone()
+        if row:
+            return row[0]
+
+        # 2. Case-insensitive exact match in account_features
+        row = self.conn.execute(
+            "SELECT account_id FROM account_features WHERE UPPER(account_id) = UPPER(?) AND dataset_id = ? LIMIT 1",
+            [clean, dataset_id],
+        ).fetchone()
+        if row:
+            return row[0]
+
+        # 3. Check in transactions table (case-insensitive)
+        row = self.conn.execute(
+            """
+            SELECT Sender_Account FROM transactions
+            WHERE UPPER(Sender_Account) = UPPER(?) AND dataset_id = ?
+            LIMIT 1
+            """,
+            [clean, dataset_id],
+        ).fetchone()
+        if row:
+            return row[0]
+
+        row = self.conn.execute(
+            """
+            SELECT Receiver_Account FROM transactions
+            WHERE UPPER(Receiver_Account) = UPPER(?) AND dataset_id = ?
+            LIMIT 1
+            """,
+            [clean, dataset_id],
+        ).fetchone()
+        if row:
+            return row[0]
+
+        # 4. Partial suffix match if length >= 4 (e.g. user typed "10001486" or "10000350")
+        if len(clean) >= 4:
+            row = self.conn.execute(
+                """
+                SELECT account_id FROM account_features
+                WHERE UPPER(account_id) LIKE '%' || UPPER(?) AND dataset_id = ?
+                LIMIT 1
+                """,
+                [clean, dataset_id],
+            ).fetchone()
+            if row:
+                return row[0]
+
+        # 5. Bank prefix (4 chars) + fuzzy suffix match (e.g. KKBK40000340 -> KKBK10000340)
+        if len(clean) >= 7 and clean[:4].isalpha():
+            prefix = clean[:4].upper()
+            suffix = clean[-4:]
+            row = self.conn.execute(
+                """
+                SELECT account_id FROM account_features
+                WHERE UPPER(account_id) LIKE ? || '%' || ? AND dataset_id = ?
+                ORDER BY (out_amount + in_amount) DESC
+                LIMIT 1
+                """,
+                [prefix, suffix, dataset_id],
+            ).fetchone()
+            if row:
+                return row[0]
+
+        return clean.upper()
+
+    def search_accounts(self, query: str, dataset_id: str, limit: int = 15) -> list[dict[str, Any]]:
+        """Search accounts in dataset matching query string."""
+        clean = query.strip()
+        if not clean:
+            rows = self.conn.execute(
+                """
+                SELECT account_id, in_amount, out_amount, in_tx_count, out_tx_count
+                FROM account_features
+                WHERE dataset_id = ?
+                ORDER BY (out_amount + in_amount) DESC
+                LIMIT ?
+                """,
+                [dataset_id, limit],
+            ).fetchall()
+        else:
+            rows = self.conn.execute(
+                """
+                SELECT account_id, in_amount, out_amount, in_tx_count, out_tx_count
+                FROM account_features
+                WHERE dataset_id = ? AND (
+                    UPPER(account_id) LIKE UPPER(?) || '%' OR
+                    UPPER(account_id) LIKE '%' || UPPER(?) || '%'
+                )
+                ORDER BY (out_amount + in_amount) DESC
+                LIMIT ?
+                """,
+                [dataset_id, clean, clean, limit],
+            ).fetchall()
+
+        results = []
+        for r in rows:
+            results.append({
+                "account_id": r[0],
+                "in_amount": float(r[1] or 0.0),
+                "out_amount": float(r[2] or 0.0),
+                "in_tx_count": int(r[3] or 0),
+                "out_tx_count": int(r[4] or 0),
+            })
+        return results
+
     def get_account_profile(self, account_id: str, dataset_id: str) -> AccountSummaryResponse | None:
         """Fetch precomputed account features and summary profile."""
-        clean_acc = account_id.strip()
+        clean_acc = self.resolve_canonical_account_id(account_id, dataset_id)
         result = self.conn.execute(
             """
             SELECT
@@ -76,7 +192,6 @@ class AccountRepository:
             in_amount=in_amt,
             out_amount=out_amt,
             net_flow=net_flow,
-            observed_net_flow=net_flow,
             distinct_senders=result[6],
             distinct_receivers=result[7],
             first_tx_timestamp=result[8],
@@ -91,7 +206,7 @@ class AccountRepository:
         direction_filter: str | None = None,
     ) -> AccountTransactionsResponse:
         """Reconstruct chronological transaction timeline for an account."""
-        clean_acc = account_id.strip()
+        clean_acc = self.resolve_canonical_account_id(account_id, dataset_id)
 
         # Build union query for IN and OUT transactions
         query = """

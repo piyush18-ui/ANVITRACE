@@ -15,7 +15,6 @@ class AccountSummaryResponse(BaseModel):
     in_amount: float = 0.0
     out_amount: float = 0.0
     net_flow: float = 0.0
-    observed_net_flow: float = 0.0
     distinct_senders: int = 0
     distinct_receivers: int = 0
     first_tx_timestamp: datetime | None = None
