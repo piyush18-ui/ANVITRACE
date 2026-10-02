@@ -10,7 +10,6 @@ import type {
 import { MoneyFlowGraph } from './MoneyFlowGraph';
 import {
   Search,
-  FileCheck2,
   FileText,
   ShieldAlert,
   AlertCircle,
@@ -64,14 +63,6 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
   const [integrityVerified, setIntegrityVerified] = useState(false);
   const [copiedHash, setCopiedHash] = useState(false);
 
-  // Auto-search if an initialAccountId is passed in
-  useEffect(() => {
-    if (initialAccountId && initialAccountId.trim()) {
-      setSearchAccount(initialAccountId);
-      handleSearch(initialAccountId);
-    }
-  }, [initialAccountId]);
-
   const handleSearch = async (accountToQuery?: string) => {
     const acc = (accountToQuery || searchAccount).trim();
     if (!acc) return;
@@ -119,6 +110,14 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
     }
   };
 
+  // Auto-search if an initialAccountId is passed in
+  useEffect(() => {
+    if (initialAccountId && initialAccountId.trim()) {
+      setSearchAccount(initialAccountId);
+      handleSearch(initialAccountId);
+    }
+  }, [initialAccountId]);
+
   const handleHopChange = async (hop: number) => {
     setSelectedHop(hop);
     if (!currentAccount) return;
@@ -151,6 +150,21 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       ctx.scale(scale, scale);
+
+      const drawRoundRect = (
+        c: CanvasRenderingContext2D,
+        x: number,
+        y: number,
+        w: number,
+        h: number,
+        r: number
+      ) => {
+        if ('roundRect' in c && typeof (c as any).roundRect === 'function') {
+          (c as any).roundRect(x, y, w, h, r);
+        } else {
+          c.rect(x, y, w, h);
+        }
+      };
 
       // Deep forensic canvas background
       ctx.fillStyle = '#090d16';
@@ -189,7 +203,7 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
       // Top-Right Seal Badge
       ctx.fillStyle = '#1e293b';
       ctx.beginPath();
-      ctx.roundRect(width - 290, 16, 258, 36, 6);
+      drawRoundRect(ctx, width - 290, 16, 258, 36, 6);
       ctx.fill();
       ctx.strokeStyle = '#334155';
       ctx.stroke();
@@ -205,7 +219,7 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
       // 2. TARGET & OFFICER DOSSIER BAR
       ctx.fillStyle = '#111827';
       ctx.beginPath();
-      ctx.roundRect(32, 85, width - 64, 60, 10);
+      drawRoundRect(ctx, 32, 85, width - 64, 60, 10);
       ctx.fill();
       ctx.strokeStyle = '#1f2937';
       ctx.stroke();
@@ -219,7 +233,7 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
       ctx.fillText(account, 48, 128);
 
       // Bank
-      const bankName = profile?.bank_name || account.slice(0, 4);
+      const bankName = (profile as any)?.bank_name || account.slice(0, 4);
       ctx.fillStyle = '#94a3b8';
       ctx.font = '10px "Plus Jakarta Sans", sans-serif';
       ctx.fillText('INSTITUTION / BANK', 340, 106);
@@ -256,7 +270,7 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
       const cardW = 554;
       ctx.fillStyle = '#111827';
       ctx.beginPath();
-      ctx.roundRect(leftX, 160, cardW, 210, 10);
+      drawRoundRect(ctx, leftX, 160, cardW, 210, 10);
       ctx.fill();
       ctx.strokeStyle = '#1f2937';
       ctx.stroke();
@@ -265,7 +279,7 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
       ctx.font = 'bold 12px "Plus Jakarta Sans", sans-serif';
       ctx.fillText('MULE RISK & SYNDICATE ASSESSMENT', leftX + 16, 185);
 
-      const riskScore = trace?.risk_score ?? risk?.mule_score ?? 84;
+      const riskScore = risk?.mule_risk_index ?? (trace as any)?.risk_score ?? 84;
       const isHighRisk = riskScore >= 70;
       const riskBadgeColor = isHighRisk ? '#ef4444' : '#f59e0b';
       const riskText = isHighRisk ? 'CRITICAL RISK / MULE ACCOUNT' : 'MEDIUM / ELEVATED RISK';
@@ -280,7 +294,7 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
 
       ctx.fillStyle = isHighRisk ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)';
       ctx.beginPath();
-      ctx.roundRect(leftX + 140, 212, 240, 26, 6);
+      drawRoundRect(ctx, leftX + 140, 212, 240, 26, 6);
       ctx.fill();
       ctx.strokeStyle = riskBadgeColor;
       ctx.stroke();
@@ -309,7 +323,7 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
       const rightX = 614;
       ctx.fillStyle = '#111827';
       ctx.beginPath();
-      ctx.roundRect(rightX, 160, cardW, 210, 10);
+      drawRoundRect(ctx, rightX, 160, cardW, 210, 10);
       ctx.fill();
       ctx.strokeStyle = '#1f2937';
       ctx.stroke();
@@ -318,11 +332,11 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
       ctx.font = 'bold 12px "Plus Jakarta Sans", sans-serif';
       ctx.fillText('FINANCIAL FLOW & VELOCITY METRICS', rightX + 16, 185);
 
-      const inAmt = trace?.total_inflow ?? 580000;
-      const inCount = trace?.inflow_count ?? 8;
+      const inAmt = profile?.in_amount ?? (trace as any)?.total_inflow ?? 580000;
+      const inCount = profile?.in_tx_count ?? (trace as any)?.inflow_count ?? 8;
       ctx.fillStyle = '#064e3b';
       ctx.beginPath();
-      ctx.roundRect(rightX + 16, 202, 250, 68, 8);
+      drawRoundRect(ctx, rightX + 16, 202, 250, 68, 8);
       ctx.fill();
       ctx.strokeStyle = '#059669';
       ctx.stroke();
@@ -334,11 +348,11 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
       ctx.font = 'bold 18px "JetBrains Mono", monospace';
       ctx.fillText(`₹${inAmt.toLocaleString('en-IN')}`, rightX + 28, 252);
 
-      const outAmt = trace?.total_outflow ?? 575000;
-      const outCount = trace?.outflow_count ?? 14;
+      const outAmt = profile?.out_amount ?? (trace as any)?.total_outflow ?? 575000;
+      const outCount = profile?.out_tx_count ?? (trace as any)?.outflow_count ?? 14;
       ctx.fillStyle = '#1e3a8a';
       ctx.beginPath();
-      ctx.roundRect(rightX + 288, 202, 250, 68, 8);
+      drawRoundRect(ctx, rightX + 288, 202, 250, 68, 8);
       ctx.fill();
       ctx.strokeStyle = '#2563eb';
       ctx.stroke();
@@ -376,7 +390,7 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
       const tableH = 220;
       ctx.fillStyle = '#111827';
       ctx.beginPath();
-      ctx.roundRect(32, tableY, width - 64, tableH, 10);
+      drawRoundRect(ctx, 32, tableY, width - 64, tableH, 10);
       ctx.fill();
       ctx.strokeStyle = '#1f2937';
       ctx.stroke();
@@ -427,7 +441,7 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
       const sealH = 150;
       ctx.fillStyle = '#0a1020';
       ctx.beginPath();
-      ctx.roundRect(32, sealY, width - 64, sealH, 10);
+      drawRoundRect(ctx, 32, sealY, width - 64, sealH, 10);
       ctx.fill();
       ctx.strokeStyle = '#1e3a8a';
       ctx.stroke();
@@ -788,7 +802,7 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
     });
 
     return list;
-  }, [traceData?.money_trail, directInflows, directOutflows, currentAccount]);
+  }, [traceData, directInflows, directOutflows, currentAccount]);
 
   // Combined node set ensuring all related connected account IDs are represented
   const combinedNodes = React.useMemo(() => {
@@ -804,7 +818,7 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
       nodes.add(e.to_account);
     });
     return Array.from(nodes);
-  }, [currentAccount, traceData?.graph?.nodes, combinedEdges]);
+  }, [currentAccount, traceData, combinedEdges]);
 
   return (
     <div className="space-y-6 pb-16 select-none max-w-7xl mx-auto">

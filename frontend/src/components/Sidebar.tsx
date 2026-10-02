@@ -4,7 +4,6 @@ import {
   FolderArchive,
   ScanSearch,
   FileCheck2,
-  ShieldCheck,
   Cpu,
   LogOut,
 } from 'lucide-react';

@@ -13,8 +13,6 @@ import {
   Check,
   Copy,
   ArrowLeft,
-  Scale,
-  ExternalLink,
 } from 'lucide-react';
 
 interface DocumentsViewProps {

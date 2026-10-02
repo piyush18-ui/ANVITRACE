@@ -4,7 +4,6 @@ import {
   Database,
   UserCheck,
   ChevronRight,
-  Terminal,
   ArrowLeft,
   LogOut,
 } from 'lucide-react';
