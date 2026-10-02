@@ -59,7 +59,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onLaunchInvestigation 
           <div className="lg:col-span-6 flex flex-col items-start text-left">
             {/* Supporting Badge */}
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-zinc-100 border border-zinc-200 text-zinc-700 text-xs font-semibold tracking-wider uppercase mb-6 shadow-xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              <img src="/anvitrace-icon.png" alt="ANVITRACE" className="w-4 h-4 rounded object-contain" />
               <span>OFFLINE • SECURE • EVIDENCE-DRIVEN</span>
             </div>
 

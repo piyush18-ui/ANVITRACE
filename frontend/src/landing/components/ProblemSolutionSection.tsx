@@ -91,8 +91,8 @@ export const ProblemSolutionSection: React.FC = () => {
 
           {/* CENTER: Visual Transformation Engine Pillar */}
           <div className="lg:col-span-2 flex flex-col items-center justify-center my-4 lg:my-0">
-            <div className="w-11 h-11 rounded-xl bg-zinc-950 text-white flex items-center justify-center shadow-xs">
-              <Cpu className="w-5 h-5 text-amber-400" />
+            <div className="w-11 h-11 rounded-xl bg-white border border-zinc-200 p-1 flex items-center justify-center shadow-xs overflow-hidden shrink-0">
+              <img src="/anvitrace-icon.png" alt="ANVITRACE" className="w-full h-full object-contain" />
             </div>
             <div className="text-[11px] font-bold text-zinc-950 mt-2 text-center uppercase tracking-tight">
               ANVITRACE
@@ -109,7 +109,7 @@ export const ProblemSolutionSection: React.FC = () => {
           <div className="lg:col-span-5 bg-white rounded-xl border border-zinc-200 p-5 shadow-xs relative">
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-zinc-200">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                <img src="/anvitrace-icon.png" alt="ANVITRACE" className="w-4 h-4 rounded object-contain shrink-0 shadow-2xs" />
                 <span className="text-xs font-bold text-zinc-950 uppercase tracking-tight">
                   ANVITRACE Investigation
                 </span>

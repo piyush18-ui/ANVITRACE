@@ -20,7 +20,7 @@ export const DashboardMockup: React.FC = () => {
             </div>
             <div className="h-4 w-[1px] bg-zinc-800 mx-1" />
             <div className="flex items-center gap-1.5 text-xs font-bold tracking-tight text-white uppercase">
-              <span className="w-2 h-2 rounded-xs bg-amber-500" />
+              <img src="/anvitrace-icon.png" alt="ANVITRACE" className="w-3.5 h-3.5 rounded object-contain bg-white p-0.5 shadow-2xs" />
               <span>ANVITRACE FORENSIC CONSOLE</span>
             </div>
           </div>

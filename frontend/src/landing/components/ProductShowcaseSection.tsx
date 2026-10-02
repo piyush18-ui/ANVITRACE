@@ -77,7 +77,7 @@ export const ProductShowcaseSection: React.FC<ProductShowcaseSectionProps> = ({ 
               </div>
               <div className="h-4 w-[1px] bg-zinc-800" />
               <div className="flex items-center gap-2 font-extrabold text-sm tracking-tight text-white uppercase">
-                <span className="w-2.5 h-2.5 rounded bg-amber-500" />
+                <img src="/anvitrace-icon.png" alt="ANVITRACE" className="w-4 h-4 rounded object-contain bg-white p-0.5 shadow-2xs" />
                 <span>ANVITRACE INVESTIGATION WORKSPACE</span>
               </div>
             </div>

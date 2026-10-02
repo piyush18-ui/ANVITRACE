@@ -107,8 +107,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         {/* Top bar with close button */}
         <div className="flex items-start justify-between mb-5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-950 flex items-center justify-center text-amber-400 shadow-sm ring-1 ring-slate-800">
-              <ShieldCheck size={20} />
+            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
+              <img src="/anvitrace-icon.png" alt="ANVITRACE" className="w-full h-full object-contain" />
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-950 tracking-tight leading-tight">

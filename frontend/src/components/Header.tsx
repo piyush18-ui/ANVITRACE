@@ -62,8 +62,8 @@ export const Header: React.FC<HeaderProps> = ({
         )}
 
         <div className="flex items-center gap-2 text-xs">
-          <span className="flex items-center gap-1.5 font-bold text-slate-900 tracking-tight">
-            <Terminal size={15} className="text-amber-500" />
+          <span className="flex items-center gap-2 font-bold text-slate-900 tracking-tight">
+            <img src="/anvitrace-icon.png" alt="ANVITRACE" className="w-5 h-5 rounded object-contain shadow-2xs shrink-0" />
             ANVITRACE
           </span>
           <ChevronRight size={13} className="text-slate-400" />

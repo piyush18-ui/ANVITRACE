@@ -64,8 +64,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Brand Header */}
         <div className="p-5 border-b border-slate-100 bg-white">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-950 flex items-center justify-center text-white shadow-md shadow-slate-900/10 ring-1 ring-slate-800">
-              <ShieldCheck size={22} className="text-amber-400" />
+            <div className="w-10 h-10 rounded-xl bg-white border border-slate-200/90 p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
+              <img src="/anvitrace-icon.png" alt="ANVITRACE Logo" className="w-full h-full object-contain" />
             </div>
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">

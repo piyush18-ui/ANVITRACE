@@ -16,11 +16,13 @@ export const LandingFooter: React.FC = () => {
           
           {/* Brand & Status */}
           <div className="flex items-center gap-3">
-            <img 
-              src="/anvitrace-icon.png" 
-              alt="Anvitrace Logo" 
-              className="w-7 h-7 object-contain shrink-0" 
-            />
+            <div className="w-8 h-8 rounded-lg bg-white p-0.5 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+              <img 
+                src="/anvitrace-icon.png" 
+                alt="Anvitrace Logo" 
+                className="w-full h-full object-contain" 
+              />
+            </div>
             <div className="flex items-center gap-2">
               <span className="font-extrabold text-sm tracking-tight text-white uppercase font-heading">
                 ANVITRACE
