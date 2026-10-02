@@ -193,6 +193,16 @@ class IngestionService:
         # [2] CSV parsing, [3] Normalization, [4] Validation & [5] Loading
         # Single-pass streaming CTE execution directly into canonical table
         # -----------------------------------------------------------------
+        # Optimize DuckDB engine settings and drop secondary indexes during bulk insert
+        self.conn.execute("""
+            SET preserve_insertion_order = false;
+            DROP INDEX IF EXISTS idx_tx_dataset_id;
+            DROP INDEX IF EXISTS idx_tx_sender_acc;
+            DROP INDEX IF EXISTS idx_tx_receiver_acc;
+            DROP INDEX IF EXISTS idx_tx_timestamp;
+            DROP INDEX IF EXISTS idx_tx_transaction_id;
+        """)
+
         t_stream_start = time.perf_counter()
         self.conn.execute(f"""
         INSERT INTO transactions (
@@ -287,8 +297,7 @@ class IngestionService:
             END AS validation_status,
             is_repeated_tx,
             is_exact_duplicate
-        FROM validated
-        ORDER BY source_row ASC;
+        FROM validated;
         """)
         t_stream_end = time.perf_counter()
         t_stream_duration = t_stream_end - t_stream_start
@@ -305,6 +314,15 @@ class IngestionService:
         logger.info(f"Building forensic indexes for dataset {dataset_id}...")
         index_manager = ForensicIndexManager(dataset_id)
         index_paths = index_manager.build_indexes(self.conn)
+
+        # Build DuckDB secondary indexes in parallel on already-loaded columnar data
+        self.conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_tx_dataset_id ON transactions (dataset_id);
+            CREATE INDEX IF NOT EXISTS idx_tx_sender_acc ON transactions (Sender_Account);
+            CREATE INDEX IF NOT EXISTS idx_tx_receiver_acc ON transactions (Receiver_Account);
+            CREATE INDEX IF NOT EXISTS idx_tx_timestamp ON transactions (Timestamp);
+            CREATE INDEX IF NOT EXISTS idx_tx_transaction_id ON transactions (Transaction_ID);
+        """)
         t6_end = time.perf_counter()
         t_index_creation = t6_end - t6_start
 
@@ -402,6 +420,12 @@ class IngestionService:
             rows_per_sec=rps,
         )
 
+        # Checkpoint database to flush WAL, compact storage pages, and reclaim memory
+        try:
+            self.conn.execute("CHECKPOINT;")
+        except Exception as e:
+            logger.debug(f"Checkpoint advisory: {e}")
+
         return {
             "dataset_id": dataset_id,
             "dataset_hash": dataset_hash,
@@ -433,17 +457,14 @@ class IngestionService:
         """Precompute incoming/outgoing counts and volumes per account into account_features table."""
         self.conn.execute(
             f"""
+            DELETE FROM account_features WHERE dataset_id = '{dataset_id}';
+
             INSERT INTO account_features (
                 account_id, dataset_id, in_tx_count, out_tx_count,
                 in_amount, out_amount, distinct_senders, distinct_receivers,
                 first_tx_timestamp, last_tx_timestamp
             )
-            WITH all_accounts AS (
-                SELECT Sender_Account AS account_id FROM transactions WHERE dataset_id = '{dataset_id}'
-                UNION
-                SELECT Receiver_Account AS account_id FROM transactions WHERE dataset_id = '{dataset_id}'
-            ),
-            outgoing AS (
+            WITH outgoing AS (
                 SELECT
                     Sender_Account AS account_id,
                     COUNT(*) AS out_tx_count,
@@ -468,7 +489,7 @@ class IngestionService:
                 GROUP BY Receiver_Account
             )
             SELECT
-                a.account_id,
+                COALESCE(o.account_id, i.account_id) AS account_id,
                 '{dataset_id}' AS dataset_id,
                 COALESCE(i.in_tx_count, 0) AS in_tx_count,
                 COALESCE(o.out_tx_count, 0) AS out_tx_count,
@@ -478,17 +499,7 @@ class IngestionService:
                 COALESCE(o.distinct_receivers, 0) AS distinct_receivers,
                 LEAST(COALESCE(o.min_out_ts, i.min_in_ts), COALESCE(i.min_in_ts, o.min_out_ts)) AS first_tx_timestamp,
                 GREATEST(COALESCE(o.max_out_ts, i.max_in_ts), COALESCE(i.max_in_ts, o.max_out_ts)) AS last_tx_timestamp
-            FROM all_accounts a
-            LEFT JOIN outgoing o ON a.account_id = o.account_id
-            LEFT JOIN incoming i ON a.account_id = i.account_id
-            ON CONFLICT (account_id, dataset_id) DO UPDATE SET
-                in_tx_count = EXCLUDED.in_tx_count,
-                out_tx_count = EXCLUDED.out_tx_count,
-                in_amount = EXCLUDED.in_amount,
-                out_amount = EXCLUDED.out_amount,
-                distinct_senders = EXCLUDED.distinct_senders,
-                distinct_receivers = EXCLUDED.distinct_receivers,
-                first_tx_timestamp = EXCLUDED.first_tx_timestamp,
-                last_tx_timestamp = EXCLUDED.last_tx_timestamp;
+            FROM outgoing o
+            FULL OUTER JOIN incoming i ON o.account_id = i.account_id;
             """
         )

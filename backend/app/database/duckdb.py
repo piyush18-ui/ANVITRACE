@@ -35,6 +35,8 @@ def connect(db_path: Path | str | None = None) -> duckdb.DuckDBPyConnection:
     path = Path(db_path) if db_path else settings.duckdb_abs_path
     path.parent.mkdir(parents=True, exist_ok=True)
     _connection = duckdb.connect(str(path))
+    _connection.execute("PRAGMA threads = 8;")
+    _connection.execute("PRAGMA memory_limit = '4GB';")
     apply_schema(_connection)
     return _connection.cursor()
 
