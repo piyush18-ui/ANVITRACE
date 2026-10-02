@@ -18,7 +18,7 @@ import {
 
 interface CaseManagementViewProps {
   onInvestigateAccount: (accountId: string) => void;
-  onNavigateToDataset: () => void;
+  onNavigateToDataset?: () => void;
   onNavigateToDocuments: () => void;
   onNavigateToNotice?: (accountId: string) => void;
 }
@@ -268,14 +268,6 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2.5 flex-wrap">
-            <button
-              type="button"
-              onClick={() => onNavigateToDataset()}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200 transition-colors shadow-xs"
-            >
-              <Database size={14} className="text-amber-600" />
-              <span>Dataset Setup</span>
-            </button>
             <button
               type="button"
               onClick={() => onNavigateToDocuments()}
