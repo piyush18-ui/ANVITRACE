@@ -192,15 +192,15 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
       <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-2">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               {onGoBack && (
                 <button
                   type="button"
                   onClick={onGoBack}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold border border-slate-200 shadow-2xs transition-colors cursor-pointer group mr-1"
-                  title="Go back to previous screen (Alt + Left Arrow)"
+                  className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 border border-slate-200 transition-colors cursor-pointer mr-1 group shadow-2xs"
+                  title="Go back to previous screen"
                 >
-                  <ArrowLeft size={13} className="text-slate-600 group-hover:-translate-x-0.5 transition-transform" />
+                  <ArrowLeft size={13} className="text-slate-500 group-hover:text-slate-800 group-hover:-translate-x-0.5 transition-transform" />
                   <span>Back</span>
                 </button>
               )}

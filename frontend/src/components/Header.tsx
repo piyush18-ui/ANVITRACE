@@ -12,18 +12,20 @@ interface HeaderProps {
   caseReference?: string;
   datasetId?: string;
   backendOnline?: boolean;
+  onSearchTarget?: (target: string) => void;
   canGoBack?: boolean;
   onGoBack?: () => void;
-  onSearchTarget?: (target: string) => void;
+  backLabel?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   caseReference = 'ACTIVE SESSION',
   datasetId,
   backendOnline: _backendOnline,
-  canGoBack = false,
-  onGoBack,
   onSearchTarget,
+  canGoBack,
+  onGoBack,
+  backLabel = 'Back',
 }) => {
   const [query, setQuery] = useState('');
 
@@ -37,19 +39,21 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="h-16 bg-white/95 backdrop-blur-md z-40 flex items-center justify-between px-6 border-b border-slate-200 select-none sticky top-0 shrink-0 shadow-xs">
-      {/* Left: Back Button & Breadcrumbs & Active Dataset / Case */}
+      {/* Left: Direct Back Action & Breadcrumbs */}
       <div className="flex items-center gap-3">
         {canGoBack && onGoBack && (
           <button
             type="button"
             onClick={onGoBack}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold border border-slate-200 shadow-2xs transition-all cursor-pointer group"
-            title="Go back to previous screen (Alt + Left Arrow)"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 hover:text-slate-900 text-xs font-semibold border border-slate-200 transition-colors shadow-2xs cursor-pointer group shrink-0"
+            title="Go back to previous screen (Browser Back / Alt+Left)"
+            id="nav-back-button"
           >
-            <ArrowLeft size={14} className="text-slate-600 group-hover:-translate-x-0.5 transition-transform" />
-            <span>Back</span>
+            <ArrowLeft size={14} className="text-slate-500 group-hover:text-slate-800 group-hover:-translate-x-0.5 transition-transform" />
+            <span>{backLabel}</span>
           </button>
         )}
+
         <div className="flex items-center gap-2 text-xs">
           <span className="flex items-center gap-1.5 font-bold text-slate-900 tracking-tight">
             <Terminal size={15} className="text-amber-500" />

@@ -28,12 +28,14 @@ interface InvestigateWorkspaceProps {
   initialAccountId?: string;
   onNavigateToNotice?: (accountId: string) => void;
   onGoBack?: () => void;
+  onAccountChange?: (accountId: string) => void;
 }
 
 export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
   initialAccountId = '',
   onNavigateToNotice,
   onGoBack,
+  onAccountChange,
 }) => {
   const [searchAccount, setSearchAccount] = useState(initialAccountId);
   const [currentAccount, setCurrentAccount] = useState(initialAccountId);
@@ -71,6 +73,10 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
   const handleSearch = async (accountToQuery?: string) => {
     const acc = (accountToQuery || searchAccount).trim();
     if (!acc) return;
+
+    if (onAccountChange && currentAccount && acc.toUpperCase() !== currentAccount.toUpperCase()) {
+      onAccountChange(acc);
+    }
 
     setLoading(true);
     setError(null);
@@ -432,15 +438,15 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
       <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               {onGoBack && (
                 <button
                   type="button"
                   onClick={onGoBack}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold border border-slate-200 shadow-2xs transition-colors cursor-pointer group mr-1"
-                  title="Go back to previous screen (Alt + Left Arrow)"
+                  className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 border border-slate-200 transition-colors cursor-pointer mr-1 group shadow-2xs"
+                  title="Go back to previous screen"
                 >
-                  <ArrowLeft size={13} className="text-slate-600 group-hover:-translate-x-0.5 transition-transform" />
+                  <ArrowLeft size={13} className="text-slate-500 group-hover:text-slate-800 group-hover:-translate-x-0.5 transition-transform" />
                   <span>Back</span>
                 </button>
               )}
@@ -494,13 +500,12 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
         {/* Action feedback message */}
         {actionMessage && (
           <div
-            className={`p-3.5 rounded-xl text-xs flex items-center justify-between font-medium ${
-              actionMessage.type === 'success'
+            className={`p-3.5 rounded-xl text-xs flex items-center justify-between font-medium ${actionMessage.type === 'success'
                 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                 : actionMessage.type === 'error'
-                ? 'bg-rose-50 text-rose-800 border border-rose-200'
-                : 'bg-amber-50 text-amber-800 border border-amber-200'
-            }`}
+                  ? 'bg-rose-50 text-rose-800 border border-rose-200'
+                  : 'bg-amber-50 text-amber-800 border border-amber-200'
+              }`}
           >
             <span>{actionMessage.text}</span>
             <button
@@ -606,25 +611,23 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
             </span>
             <div className="flex items-baseline gap-2 mt-2">
               <span
-                className={`text-3xl font-extrabold tabular-nums font-['Plus_Jakarta_Sans',sans-serif] ${
-                  (riskProfile?.mule_risk_index || 0) >= 70
+                className={`text-3xl font-extrabold tabular-nums font-['Plus_Jakarta_Sans',sans-serif] ${(riskProfile?.mule_risk_index || 0) >= 70
                     ? 'text-rose-600'
                     : (riskProfile?.mule_risk_index || 0) >= 40
-                    ? 'text-amber-600'
-                    : 'text-emerald-600'
-                }`}
+                      ? 'text-amber-600'
+                      : 'text-emerald-600'
+                  }`}
               >
                 {riskProfile ? riskProfile.mule_risk_index.toFixed(1) : '—'}
               </span>
               <span className="text-xs font-semibold text-slate-400">/ 100</span>
               <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                  riskProfile?.risk_tier === 'HIGH'
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${riskProfile?.risk_tier === 'HIGH'
                     ? 'bg-rose-100 text-rose-800'
                     : riskProfile?.risk_tier === 'MEDIUM'
-                    ? 'bg-amber-100 text-amber-800'
-                    : 'bg-emerald-100 text-emerald-800'
-                }`}
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-emerald-100 text-emerald-800'
+                  }`}
               >
                 {riskProfile?.risk_tier || 'UNKNOWN'}
               </span>
@@ -669,31 +672,24 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
           </div>
 
           {/* Account Net Flow & Retention */}
-          {(() => {
-            const netFlowRetained = accountProfile
-              ? (accountProfile.observed_net_flow ?? accountProfile.net_flow ?? (accountProfile.in_amount - accountProfile.out_amount))
-              : 0;
-            return (
-              <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-                  Net Flow Retained
-                </span>
-                <div className="text-2xl font-bold tabular-nums font-['Plus_Jakarta_Sans',sans-serif] text-slate-900 mt-2 truncate">
-                  <span className="text-lg font-semibold text-slate-400 mr-1">₹</span>
-                  {formatINR(netFlowRetained)}
-                </div>
-                <div className="flex items-center gap-1.5 mt-2 text-xs text-slate-500 font-medium">
-                  <span>
-                    Retention:{' '}
-                    {accountProfile && accountProfile.in_amount > 0
-                      ? ((netFlowRetained / accountProfile.in_amount) * 100).toFixed(1)
-                      : '0.0'}
-                    %
-                  </span>
-                </div>
-              </div>
-            );
-          })()}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+              Net Flow Retained
+            </span>
+            <div className="text-2xl font-bold tabular-nums font-['Plus_Jakarta_Sans',sans-serif] text-slate-900 mt-2 truncate">
+              <span className="text-lg font-semibold text-slate-400 mr-1">₹</span>
+              {accountProfile ? formatINR(accountProfile.observed_net_flow) : '0.00'}
+            </div>
+            <div className="flex items-center gap-1.5 mt-2 text-xs text-slate-500 font-medium">
+              <span>
+                Retention:{' '}
+                {accountProfile && accountProfile.in_amount > 0
+                  ? ((accountProfile.observed_net_flow / accountProfile.in_amount) * 100).toFixed(1)
+                  : '0.0'}
+                %
+              </span>
+            </div>
+          </div>
         </div>
       )}
 
@@ -706,44 +702,40 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveTab('lineage')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'lineage'
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'lineage'
                     ? 'bg-slate-900 text-white shadow-xs'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                }`}
+                  }`}
               >
                 Amount Lineage &amp; Trail ({combinedEdges.length})
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('risk_features')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'risk_features'
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'risk_features'
                     ? 'bg-slate-900 text-white shadow-xs'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                }`}
+                  }`}
               >
                 Risk Score Signals ({riskProfile?.features.length || 0})
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('layers')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  activeTab === 'layers'
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'layers'
                     ? 'bg-slate-900 text-white shadow-xs'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                }`}
+                  }`}
               >
                 Candidate Mule Layers ({riskProfile?.layer_classifications.length || 0})
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('integrity')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                  activeTab === 'integrity'
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${activeTab === 'integrity'
                     ? 'bg-slate-900 text-white shadow-xs'
                     : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                }`}
+                  }`}
               >
                 <ShieldCheck size={14} />
                 <span>SHA-256 Check Integrity</span>
@@ -958,9 +950,8 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
                           <tr
                             key={edge.record_id}
                             onClick={() => setSelectedTx(edge)}
-                            className={`cursor-pointer hover:bg-slate-50 transition-colors ${
-                              isSelected ? 'bg-amber-50/70 font-semibold' : ''
-                            }`}
+                            className={`cursor-pointer hover:bg-slate-50 transition-colors ${isSelected ? 'bg-amber-50/70 font-semibold' : ''
+                              }`}
                           >
                             <td className="py-2.5 px-3 text-slate-500 font-mono text-[11px] whitespace-nowrap">
                               {edge.timestamp ? new Date(edge.timestamp).toISOString().replace('T', ' ').slice(0, 19) : '—'}
@@ -991,15 +982,14 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
                             <td className="py-2.5 px-2 text-slate-500 font-mono text-[10px]">{edge.payment_mode}</td>
                             <td className="py-2.5 px-2">
                               <span
-                                className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                                  edge.is_cycle
+                                className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${edge.is_cycle
                                     ? 'bg-rose-100 text-rose-800'
                                     : isUpstream
-                                    ? 'bg-emerald-100 text-emerald-800'
-                                    : edge.lineage_status === 'traced'
-                                    ? 'bg-blue-100 text-blue-800'
-                                    : 'bg-slate-100 text-slate-800'
-                                }`}
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : edge.lineage_status === 'traced'
+                                        ? 'bg-blue-100 text-blue-800'
+                                        : 'bg-slate-100 text-slate-800'
+                                  }`}
                               >
                                 {edge.is_cycle ? 'CYCLE' : isUpstream ? 'SOURCE' : edge.lineage_status.toUpperCase()}
                               </span>
@@ -1054,11 +1044,10 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
                   {riskProfile.features.map((feat, idx) => (
                     <div
                       key={idx}
-                      className={`p-4 rounded-xl border transition-all ${
-                        feat.score_contribution > 0
+                      className={`p-4 rounded-xl border transition-all ${feat.score_contribution > 0
                           ? 'bg-amber-50/40 border-amber-200'
                           : 'bg-slate-50/50 border-slate-200/80'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
@@ -1067,11 +1056,10 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
                               {feat.feature_name.toUpperCase().replace(/_/g, ' ')}
                             </span>
                             <span
-                              className={`text-xs px-2.5 py-0.5 rounded-full font-mono font-bold ${
-                                feat.score_contribution > 0
+                              className={`text-xs px-2.5 py-0.5 rounded-full font-mono font-bold ${feat.score_contribution > 0
                                   ? 'bg-amber-100 text-amber-900 border border-amber-300'
                                   : 'bg-slate-200 text-slate-700'
-                              }`}
+                                }`}
                             >
                               +{feat.score_contribution.toFixed(1)} pts
                             </span>
@@ -1184,7 +1172,7 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
                         onClick={() =>
                           copyToClipboard(
                             traceData.evidence_metadata?.result_hash ||
-                              '400fbd8c250e4cb090b820c9c508fee542bd7756ed0ce8e9cd8280705bb2cf96'
+                            '400fbd8c250e4cb090b820c9c508fee542bd7756ed0ce8e9cd8280705bb2cf96'
                           )
                         }
                         className="text-slate-400 hover:text-slate-700 flex items-center gap-1 text-[10px] transition-colors"

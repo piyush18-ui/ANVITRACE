@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import type { DatasetStatus, DatasetStats } from '../api';
-import { Database, UploadCloud, CheckCircle2, AlertCircle, RefreshCw, FileSpreadsheet, Loader2 } from 'lucide-react';
+import { Database, UploadCloud, CheckCircle2, AlertCircle, RefreshCw, FileSpreadsheet, Loader2, ArrowLeft } from 'lucide-react';
 
-export const DatasetView: React.FC = () => {
+interface DatasetViewProps {
+  onGoBack?: () => void;
+}
+
+export const DatasetView: React.FC<DatasetViewProps> = ({ onGoBack }) => {
   const [status, setStatus] = useState<DatasetStatus | null>(null);
   const [stats, setStats] = useState<DatasetStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,9 +81,22 @@ export const DatasetView: React.FC = () => {
       {/* Header */}
       <div className="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/30 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <span className="text-[11px] font-data-mono font-bold uppercase tracking-wider text-outline">
-            INGESTION &amp; FORENSIC PROVENANCE
-          </span>
+          <div className="flex items-center gap-2">
+            {onGoBack && (
+              <button
+                type="button"
+                onClick={onGoBack}
+                className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 border border-slate-200 transition-colors cursor-pointer mr-1 group shadow-2xs"
+                title="Go back to previous screen"
+              >
+                <ArrowLeft size={13} className="text-slate-500 group-hover:text-slate-800 group-hover:-translate-x-0.5 transition-transform" />
+                <span>Back</span>
+              </button>
+            )}
+            <span className="text-[11px] font-data-mono font-bold uppercase tracking-wider text-outline">
+              INGESTION &amp; FORENSIC PROVENANCE
+            </span>
+          </div>
           <h1 className="font-headline-lg text-2xl font-bold text-on-surface mt-0.5">
             Dataset Ingestion &amp; Health
           </h1>

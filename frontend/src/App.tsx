@@ -9,7 +9,7 @@ import { CaseManagementView } from './components/CaseManagementView';
 import { DocumentsView } from './components/DocumentsView';
 import { DatasetView } from './components/DatasetView';
 
-interface NavHistoryItem {
+interface NavigationState {
   tab: ActiveTab;
   accountId: string;
 }
@@ -17,9 +17,49 @@ interface NavHistoryItem {
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [historyStack, setHistoryStack] = useState<NavigationState[]>([]);
   const [backendOnline, setBackendOnline] = useState<boolean>(false);
   const [datasetId, setDatasetId] = useState<string | undefined>(undefined);
-  const [historyStack, setHistoryStack] = useState<NavHistoryItem[]>([]);
+
+  // Sync with browser back/forward buttons (popstate)
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      if (e.state && e.state.tab) {
+        setActiveTab(e.state.tab);
+        setSelectedAccountId(e.state.accountId || '');
+        setHistoryStack((prev) => (prev.length > 0 ? prev.slice(0, -1) : []));
+      } else if (window.location.hash) {
+        const hash = window.location.hash.replace('#', '');
+        const [tab, acc] = hash.split('/');
+        if (['overview', 'cases', 'investigate', 'documents', 'dataset-status'].includes(tab)) {
+          setActiveTab(tab as ActiveTab);
+          setSelectedAccountId(acc || '');
+        }
+      } else {
+        setActiveTab('overview');
+        setSelectedAccountId('');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Alt + ArrowLeft keyboard shortcut for going back
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key === 'ArrowLeft') {
+        const target = e.target as HTMLElement;
+        const isInput = target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
+        if (!isInput) {
+          e.preventDefault();
+          handleGoBack();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [historyStack, activeTab, selectedAccountId]);
 
   // Check backend health periodically
   useEffect(() => {
@@ -38,15 +78,41 @@ export const App: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const navigateTo = (tab: ActiveTab, accountId?: string) => {
-    setHistoryStack((prev) => [
-      ...prev,
-      { tab: activeTab, accountId: selectedAccountId },
-    ]);
-    if (accountId !== undefined) {
-      setSelectedAccountId(accountId);
+  const navigateTo = (tab: ActiveTab, accountId: string = '', addToHistory: boolean = true) => {
+    if (tab === activeTab && accountId === selectedAccountId) return;
+
+    if (addToHistory) {
+      setHistoryStack((prev) => [
+        ...prev,
+        { tab: activeTab, accountId: selectedAccountId },
+      ]);
+      if (typeof window !== 'undefined') {
+        const hash = `#${tab}${accountId ? `/${accountId}` : ''}`;
+        window.history.pushState({ tab, accountId }, '', hash);
+      }
     }
+
     setActiveTab(tab);
+    setSelectedAccountId(accountId);
+  };
+
+  const handleGoBack = () => {
+    if (historyStack.length > 0) {
+      const prev = historyStack[historyStack.length - 1];
+      setHistoryStack((stack) => stack.slice(0, -1));
+      setActiveTab(prev.tab);
+      setSelectedAccountId(prev.accountId || '');
+      if (typeof window !== 'undefined') {
+        const hash = `#${prev.tab}${prev.accountId ? `/${prev.accountId}` : ''}`;
+        window.history.replaceState({ tab: prev.tab, accountId: prev.accountId }, '', hash);
+      }
+    } else if (activeTab !== 'overview') {
+      setActiveTab('overview');
+      setSelectedAccountId('');
+      if (typeof window !== 'undefined') {
+        window.history.replaceState({ tab: 'overview', accountId: '' }, '', '#overview');
+      }
+    }
   };
 
   const handleSelectAccount = (acc: string) => {
@@ -57,34 +123,9 @@ export const App: React.FC = () => {
     navigateTo('documents', acc);
   };
 
-  const handleSidebarTabChange = (newTab: ActiveTab) => {
-    if (newTab !== activeTab) {
-      navigateTo(newTab, selectedAccountId);
-    }
+  const handleTabChange = (tab: ActiveTab) => {
+    navigateTo(tab, tab === 'investigate' ? selectedAccountId : '');
   };
-
-  const handleGoBack = () => {
-    if (historyStack.length > 0) {
-      const prev = historyStack[historyStack.length - 1];
-      setHistoryStack((stack) => stack.slice(0, -1));
-      setActiveTab(prev.tab);
-      setSelectedAccountId(prev.accountId || '');
-    } else {
-      setActiveTab('overview');
-    }
-  };
-
-  // Keyboard shortcut listener: Alt + ArrowLeft
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey && e.key === 'ArrowLeft') {
-        e.preventDefault();
-        handleGoBack();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [historyStack, activeTab, selectedAccountId]);
 
   const canGoBack = historyStack.length > 0 || activeTab !== 'overview';
 
@@ -93,20 +134,20 @@ export const App: React.FC = () => {
       {/* Sidebar Navigation matching user requested 4 core stages */}
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={handleSidebarTabChange}
+        setActiveTab={handleTabChange}
         backendOnline={backendOnline}
       />
 
       {/* Main Content Pane */}
       <div className="flex-1 ml-72 flex flex-col h-screen overflow-hidden bg-slate-50">
-        {/* Sticky Header with Universal Back Button */}
+        {/* Sticky Header */}
         <Header
           caseReference={datasetId ? `DATASET: ${datasetId.slice(0, 10)}` : 'AIR-GAP FORENSICS'}
           datasetId={datasetId}
           backendOnline={backendOnline}
+          onSearchTarget={handleSelectAccount}
           canGoBack={canGoBack}
           onGoBack={handleGoBack}
-          onSearchTarget={handleSelectAccount}
         />
 
         {/* Scrollable View Area */}
@@ -138,6 +179,11 @@ export const App: React.FC = () => {
               initialAccountId={selectedAccountId}
               onNavigateToNotice={handleNavigateToNotice}
               onGoBack={handleGoBack}
+              onAccountChange={(newAcc) => {
+                if (newAcc !== selectedAccountId) {
+                  navigateTo('investigate', newAcc);
+                }
+              }}
             />
           )}
 
@@ -152,7 +198,7 @@ export const App: React.FC = () => {
 
           {/* Advanced / Technical Ingestion Diagnostics */}
           {activeTab === 'dataset-status' && (
-            <DatasetView />
+            <DatasetView onGoBack={handleGoBack} />
           )}
         </main>
       </div>
