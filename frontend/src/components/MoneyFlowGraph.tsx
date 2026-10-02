@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import type { MoneyTrailEdge, GraphNode } from '../api';
-import { ZoomIn, ZoomOut, Maximize2, ShieldAlert, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, ShieldAlert, ArrowDownLeft, ArrowUpRight, Clock } from 'lucide-react';
 
 interface MoneyFlowGraphProps {
   nodes?: (GraphNode | string)[];
@@ -177,19 +177,108 @@ export const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({
     };
   }, [filteredEdges, victimAccount, _nodes]);
 
-  // Aggregate stats per node for tooltip hover
+  // Aggregate stats & chronological timespan per node
   const nodeStats = useMemo(() => {
-    const stats: Record<string, { inAmt: number; outAmt: number; inCount: number; outCount: number }> = {};
+    const rawMap: Record<
+      string,
+      {
+        inAmt: number;
+        outAmt: number;
+        inCount: number;
+        outCount: number;
+        timestamps: number[];
+      }
+    > = {};
+
     edges.forEach((e) => {
-      if (!stats[e.from_account]) stats[e.from_account] = { inAmt: 0, outAmt: 0, inCount: 0, outCount: 0 };
-      if (!stats[e.to_account]) stats[e.to_account] = { inAmt: 0, outAmt: 0, inCount: 0, outCount: 0 };
+      if (!rawMap[e.from_account]) {
+        rawMap[e.from_account] = { inAmt: 0, outAmt: 0, inCount: 0, outCount: 0, timestamps: [] };
+      }
+      if (!rawMap[e.to_account]) {
+        rawMap[e.to_account] = { inAmt: 0, outAmt: 0, inCount: 0, outCount: 0, timestamps: [] };
+      }
 
-      stats[e.from_account].outAmt += e.amount;
-      stats[e.from_account].outCount += 1;
+      rawMap[e.from_account].outAmt += e.amount || 0;
+      rawMap[e.from_account].outCount += 1;
 
-      stats[e.to_account].inAmt += e.amount;
-      stats[e.to_account].inCount += 1;
+      rawMap[e.to_account].inAmt += e.amount || 0;
+      rawMap[e.to_account].inCount += 1;
+
+      if (e.timestamp) {
+        const clean = String(e.timestamp).trim().replace(' ', 'T');
+        const t = new Date(clean).getTime();
+        if (!isNaN(t)) {
+          rawMap[e.from_account].timestamps.push(t);
+          rawMap[e.to_account].timestamps.push(t);
+        }
+      }
     });
+
+    const stats: Record<
+      string,
+      {
+        inAmt: number;
+        outAmt: number;
+        inCount: number;
+        outCount: number;
+        timespanStr: string;
+        rangeStr: string;
+        startDateStr: string;
+        endDateStr: string;
+      }
+    > = {};
+
+    Object.entries(rawMap).forEach(([acc, val]) => {
+      val.timestamps.sort((a, b) => a - b);
+      const firstT = val.timestamps.length > 0 ? new Date(val.timestamps[0]) : null;
+      const lastT = val.timestamps.length > 0 ? new Date(val.timestamps[val.timestamps.length - 1]) : null;
+
+      let timespanStr = 'Single Event';
+      let rangeStr = 'Timeline not recorded';
+      let startDateStr = '—';
+      let endDateStr = '—';
+
+      if (firstT && lastT) {
+        const diffMs = Math.abs(lastT.getTime() - firstT.getTime());
+        const fmt = (d: Date) => d.toISOString().replace('T', ' ').slice(0, 19);
+        startDateStr = fmt(firstT);
+        endDateStr = fmt(lastT);
+
+        if (diffMs === 0) {
+          timespanStr = 'Single Instant / 0s';
+          rangeStr = startDateStr;
+        } else {
+          const totalSec = Math.floor(diffMs / 1000);
+          const totalMin = Math.floor(totalSec / 60);
+          const totalHrs = Math.floor(totalMin / 60);
+          const days = Math.floor(totalHrs / 24);
+          const hrs = totalHrs % 24;
+          const mins = totalMin % 60;
+          const secs = totalSec % 60;
+
+          const parts: string[] = [];
+          if (days > 0) parts.push(`${days}d`);
+          if (hrs > 0) parts.push(`${hrs}h`);
+          if (mins > 0 && days === 0) parts.push(`${mins}m`);
+          if (parts.length === 0) parts.push(`${secs}s`);
+
+          timespanStr = parts.join(' ');
+          rangeStr = `${startDateStr} → ${endDateStr}`;
+        }
+      }
+
+      stats[acc] = {
+        inAmt: val.inAmt,
+        outAmt: val.outAmt,
+        inCount: val.inCount,
+        outCount: val.outCount,
+        timespanStr,
+        rangeStr,
+        startDateStr,
+        endDateStr,
+      };
+    });
+
     return stats;
   }, [edges]);
 
@@ -593,35 +682,125 @@ export const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({
                     {badgeText}
                   </text>
 
-                  {/* Hover Tooltip Card */}
-                  {isHovered && (
-                    <g transform="translate(0, -68)" className="pointer-events-none">
-                      <rect
-                        x={-90}
-                        y={0}
-                        width={180}
-                        height={58}
-                        rx={8}
-                        fill="#0f172a"
-                        opacity={0.95}
-                        stroke="#334155"
-                        strokeWidth={1}
-                        className="shadow-xl"
-                      />
-                      <text x={0} y={15} textAnchor="middle" fill="#f8fafc" className="text-[10px] font-mono font-bold">
-                        {account}
-                      </text>
-                      <text x={0} y={30} textAnchor="middle" fill="#34d399" className="text-[9px] font-mono">
-                        Inflow: ₹{stats.inAmt.toLocaleString('en-IN')} ({stats.inCount} tx)
-                      </text>
-                      <text x={0} y={44} textAnchor="middle" fill="#93c5fd" className="text-[9px] font-mono">
-                        Outflow: ₹{stats.outAmt.toLocaleString('en-IN')} ({stats.outCount} tx)
-                      </text>
-                    </g>
-                  )}
                 </g>
               );
             })}
+
+            {/* Classic Forensic Dossier Popup Card - Rendered last to ensure highest z-index above all nodes & edges */}
+            {hoveredNode && positions[hoveredNode] && (() => {
+              const account = hoveredNode;
+              const pos = positions[account];
+              const stats = nodeStats[account] || {
+                inAmt: 0,
+                outAmt: 0,
+                inCount: 0,
+                outCount: 0,
+                timespanStr: 'Single Event',
+                rangeStr: 'Timestamp not recorded',
+                startDateStr: '—',
+                endDateStr: '—',
+              };
+              const isTarget = account === victimAccount;
+              const isUpstream = pos.col < 0;
+              const bankCode = getBankCode(account);
+              const showBelow = pos.y < 185;
+              const popupWidth = 320;
+              const popupHeight = 158;
+              const xPos = -popupWidth / 2;
+              const yPos = showBelow ? 36 : -popupHeight - 14;
+
+              return (
+                <g
+                  transform={`translate(${pos.x}, ${pos.y})`}
+                  className="pointer-events-none select-none"
+                >
+                  <foreignObject
+                    x={xPos}
+                    y={yPos}
+                    width={popupWidth}
+                    height={popupHeight + 16}
+                    className="overflow-visible"
+                  >
+                    <div className="relative w-[320px] bg-slate-950/95 backdrop-blur-md rounded-2xl border border-slate-700/80 shadow-[0_20px_40px_rgba(0,0,0,0.65)] p-4 text-white flex flex-col justify-between ring-1 ring-white/10 animate-in fade-in zoom-in-95 duration-100">
+                      {/* Triangle Pointer Notch */}
+                      {showBelow ? (
+                        <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-950 border-l border-t border-slate-700 rotate-45" />
+                      ) : (
+                        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-slate-950 border-r border-b border-slate-700 rotate-45" />
+                      )}
+
+                      {/* Header: Bank Code + Account ID + Role Badge */}
+                      <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-800">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="px-1.5 py-0.5 rounded bg-slate-800 text-amber-400 font-mono text-[10px] font-bold border border-slate-700 shrink-0">
+                            {bankCode}
+                          </span>
+                          <span className="font-mono text-xs font-bold text-slate-100 truncate tracking-tight">
+                            {account}
+                          </span>
+                        </div>
+                        <span
+                          className={`text-[9px] font-bold font-mono px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${
+                            isTarget
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                              : isUpstream
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                          }`}
+                        >
+                          {isTarget ? '★ Target Focus' : isUpstream ? 'Funds Source' : `Hop ${Math.max(1, pos.col)} Flow`}
+                        </span>
+                      </div>
+
+                      {/* Inflow vs Outflow Metrics Grid */}
+                      <div className="grid grid-cols-2 gap-2 my-2.5">
+                        <div className="bg-slate-900/90 rounded-xl p-2.5 border border-emerald-500/25 flex flex-col justify-between">
+                          <div className="flex items-center justify-between text-[10px] font-bold text-emerald-400 mb-1">
+                            <span className="flex items-center gap-1">
+                              <ArrowDownLeft size={12} />
+                              <span>INFLOW</span>
+                            </span>
+                            <span className="text-slate-400 font-mono font-medium">{stats.inCount} tx</span>
+                          </div>
+                          <div className="font-mono text-[13px] font-bold text-emerald-300 truncate">
+                            ₹{stats.inAmt.toLocaleString('en-IN')}
+                          </div>
+                        </div>
+
+                        <div className="bg-slate-900/90 rounded-xl p-2.5 border border-blue-500/25 flex flex-col justify-between">
+                          <div className="flex items-center justify-between text-[10px] font-bold text-blue-400 mb-1">
+                            <span className="flex items-center gap-1">
+                              <ArrowUpRight size={12} />
+                              <span>OUTFLOW</span>
+                            </span>
+                            <span className="text-slate-400 font-mono font-medium">{stats.outCount} tx</span>
+                          </div>
+                          <div className="font-mono text-[13px] font-bold text-blue-300 truncate">
+                            ₹{stats.outAmt.toLocaleString('en-IN')}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Classic Timespan Banner */}
+                      <div className="bg-slate-900/90 rounded-xl px-3 py-2 border border-slate-800 flex flex-col gap-1">
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-300 uppercase tracking-wider">
+                            <Clock size={12} className="text-amber-400 shrink-0" />
+                            <span>Active Timespan</span>
+                          </span>
+                          <span className="text-[11px] font-mono font-bold text-amber-300 bg-amber-400/10 px-2 py-0.5 rounded-md border border-amber-400/20 shadow-2xs">
+                            {stats.timespanStr}
+                          </span>
+                        </div>
+                        <div className="text-[10px] font-mono text-slate-400 truncate tracking-tight">
+                          {stats.rangeStr}
+                        </div>
+                      </div>
+                    </div>
+                  </foreignObject>
+                </g>
+              );
+            })()}
           </svg>
         )}
       </div>
