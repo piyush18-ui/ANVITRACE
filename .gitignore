@@ -2,6 +2,8 @@
 .env
 .env.local
 .env.*
+mcp_config.json
+.agents/mcp_config.json
 
 # Python
 __pycache__/
