@@ -7,7 +7,9 @@ Endpoints:
 """
 
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import FileResponse
 
+from app.config.settings import settings
 from app.database.duckdb import get_connection
 from app.database.repositories.dataset import DatasetRepository
 from app.schemas.documents import (
@@ -170,3 +172,25 @@ async def generate_freeze_requisition(request: FreezeRequisitionRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Freeze requisition generation failed: {e}",
         )
+
+
+@documents_router.get(
+    "/download/{document_id}",
+    summary="Download or view generated statutory document PDF",
+)
+async def download_document(document_id: str):
+    """Serve generated PDF document file for download or direct browser viewing."""
+    exports_dir = settings.project_root / settings.DATA_EXPORTS_DIR
+    matches = list(exports_dir.glob(f"{document_id}*.pdf"))
+    if not matches:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document '{document_id}' not found in exports archive.",
+        )
+    target_file = matches[0]
+    return FileResponse(
+        target_file,
+        media_type="application/pdf",
+        filename=target_file.name,
+    )
+

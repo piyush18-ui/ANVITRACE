@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { FolderPlus, FileText, Search, Database, Trash2 } from 'lucide-react';
+import { api } from '../api';
+import { FolderPlus, FileText, Search, Database, Trash2, UploadCloud, CheckCircle2, ShieldAlert } from 'lucide-react';
 
 interface CaseManagementViewProps {
   onInvestigateAccount: (accountId: string) => void;
@@ -12,9 +13,14 @@ export interface CaseDocket {
   title: string;
   act: string;
   targetAccount: string;
+  officerName?: string;
   notes?: string;
   createdAt: string;
   status: 'Active Investigation' | 'Sealed Evidence' | 'Court Requisition Pending';
+  datasetId?: string;
+  datasetFilename?: string;
+  datasetTotalRows?: number;
+  datasetHash?: string;
 }
 
 export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
@@ -40,6 +46,12 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
   const [newCaseAct, setNewCaseAct] = useState('Sec. 66D IT Act / 420 IPC');
   const [newCaseTarget, setNewCaseTarget] = useState('');
   const [newCaseNotes, setNewCaseNotes] = useState('');
+  const [newCaseFile, setNewCaseFile] = useState<File | null>(null);
+
+  // Evidence upload state
+  const [uploadingCaseId, setUploadingCaseId] = useState<string | null>(null);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const saveCases = (updated: CaseDocket[]) => {
     setCases(updated);
@@ -50,9 +62,56 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
     }
   };
 
-  const handleCreateCase = (e: React.FormEvent) => {
+  const handleAttachEvidence = async (caseId: string, file: File) => {
+    setUploadingCaseId(caseId);
+    setUploadError(null);
+    setUploadMessage(null);
+    try {
+      const resp = await api.uploadDataset(file);
+      const updated = cases.map((c) => {
+        if (c.id === caseId) {
+          return {
+            ...c,
+            datasetId: resp.dataset_id,
+            datasetFilename: file.name,
+            datasetTotalRows: resp.total_rows || 2000000,
+            datasetHash: resp.dataset_hash,
+          };
+        }
+        return c;
+      });
+      saveCases(updated);
+      setUploadMessage(`Evidence CSV '${file.name}' attached to Case ${caseId}! Ingested into DuckDB.`);
+    } catch (err: any) {
+      setUploadError(`Evidence upload failed: ${err.message}`);
+    } finally {
+      setUploadingCaseId(null);
+    }
+  };
+
+  const handleCreateCase = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCaseId.trim() || !newCaseTarget.trim()) return;
+
+    let attachedDatasetId: string | undefined;
+    let attachedFilename: string | undefined;
+    let attachedRows: number | undefined;
+    let attachedHash: string | undefined;
+
+    if (newCaseFile) {
+      setUploadingCaseId(newCaseId.trim().toUpperCase());
+      try {
+        const resp = await api.uploadDataset(newCaseFile);
+        attachedDatasetId = resp.dataset_id;
+        attachedFilename = newCaseFile.name;
+        attachedRows = resp.total_rows || 2000000;
+        attachedHash = resp.dataset_hash;
+      } catch (err: any) {
+        setUploadError(`Evidence upload failed: ${err.message}`);
+      } finally {
+        setUploadingCaseId(null);
+      }
+    }
 
     const newDocket: CaseDocket = {
       id: newCaseId.trim().toUpperCase(),
@@ -62,6 +121,10 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
       notes: newCaseNotes.trim(),
       createdAt: new Date().toISOString(),
       status: 'Active Investigation',
+      datasetId: attachedDatasetId,
+      datasetFilename: attachedFilename,
+      datasetTotalRows: attachedRows,
+      datasetHash: attachedHash,
     };
 
     saveCases([newDocket, ...cases]);
@@ -70,6 +133,7 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
     setNewCaseTitle('');
     setNewCaseTarget('');
     setNewCaseNotes('');
+    setNewCaseFile(null);
   };
 
   const handleDeleteCase = (id: string) => {
@@ -203,9 +267,54 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] text-outline uppercase font-semibold">REGISTERED:</span>
-                    <span>{new Date(docket.createdAt).toLocaleDateString()}</span>
+                    <span>{docket.createdDate}</span>
                   </div>
                 </div>
+
+                {/* Evidence CSV info or upload trigger */}
+                <div className="p-2.5 bg-surface-container-low rounded-lg border border-outline-variant/30 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-outline uppercase font-bold flex items-center gap-1">
+                      <Database size={11} className="text-secondary" />
+                      EVIDENCE DATASET
+                    </span>
+                    {docket.datasetId ? (
+                      <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">
+                        INGESTED IN DUCKDB
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-medium text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                        NO CSV ATTACHED
+                      </span>
+                    )}
+                  </div>
+                  {docket.datasetFilename ? (
+                    <div className="text-[10px] font-data-mono text-on-surface">
+                      <span className="font-semibold text-indigo-700 block truncate">{docket.datasetFilename}</span>
+                      <span className="text-on-surface-variant block mt-0.5">
+                        {docket.datasetTotalRows ? `${docket.datasetTotalRows.toLocaleString()} records` : 'Dataset active'} • ID: {docket.datasetId?.slice(0, 12)}...
+                      </span>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="cursor-pointer inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition-colors">
+                        <UploadCloud size={12} />
+                        <span>{uploadingCaseId === docket.id ? 'Ingesting CSV...' : 'Attach & Ingest Evidence CSV'}</span>
+                        <input
+                          type="file"
+                          accept=".csv"
+                          disabled={uploadingCaseId === docket.id}
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleAttachEvidence(docket.id, file);
+                          }}
+                        />
+                      </label>
+                    </div>
+                  )}
+                </div>
+
                 {docket.notes && (
                   <p className="text-[11px] text-on-surface-variant line-clamp-2 italic bg-surface-container-low p-2 rounded">
                     {docket.notes}
@@ -223,7 +332,7 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
                   }}
                   className="flex-1 py-1.5 bg-primary-container hover:bg-black text-on-primary rounded text-xs font-bold transition-colors shadow-xs text-center"
                 >
-                  Investigate →
+                  Deep-Dive →
                 </button>
                 <button
                   onClick={() => {
@@ -232,10 +341,11 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
                     } catch {}
                     onNavigateToDocuments();
                   }}
-                  className="py-1.5 px-3 bg-surface-container hover:bg-surface-container-high text-on-surface rounded text-xs font-semibold transition-colors border border-outline-variant/40"
-                  title="Generate Documents for Case"
+                  className="py-1.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded text-xs font-bold transition-colors shadow-xs flex items-center gap-1"
+                  title="Generate Sec. 102 Bank Freeze Notice for Case"
                 >
-                  <FileText size={14} />
+                  <ShieldAlert size={14} />
+                  <span>Notice</span>
                 </button>
               </div>
             </div>
@@ -328,6 +438,26 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
                 />
               </div>
 
+              <div>
+                <label className="text-[10px] text-outline uppercase font-bold block mb-1">
+                  ATTACH EVIDENCE CSV (OPTIONAL)
+                </label>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) setNewCaseFile(f);
+                  }}
+                  className="w-full bg-surface-container-low border border-outline-variant/50 rounded-lg p-2 text-on-surface focus:outline-none file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary-container file:text-on-primary hover:file:bg-black"
+                />
+                {newCaseFile && (
+                  <span className="text-[10px] text-emerald-700 block mt-1 font-bold">
+                    ✓ Selected: {newCaseFile.name} (will be ingested into DuckDB and saved to this case)
+                  </span>
+                )}
+              </div>
+
               <div className="pt-3 border-t border-outline-variant/20 flex justify-end gap-2">
                 <button
                   type="button"
@@ -338,9 +468,10 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-lg bg-primary-container hover:bg-black text-on-primary font-bold shadow-sm"
+                  disabled={Boolean(uploadingCaseId)}
+                  className="px-5 py-2 rounded-lg bg-primary-container hover:bg-black text-on-primary font-bold shadow-sm disabled:opacity-50"
                 >
-                  Save Docket
+                  {uploadingCaseId ? 'Ingesting Evidence...' : 'Save Case Docket'}
                 </button>
               </div>
             </form>

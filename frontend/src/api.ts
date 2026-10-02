@@ -360,4 +360,8 @@ export const api = {
     if (!res.ok) throw new Error('Freeze requisition generation failed');
     return res.json();
   },
+
+  getDocumentDownloadUrl: (documentId: string): string => {
+    return `${API_BASE}/documents/download/${documentId}`;
+  },
 };

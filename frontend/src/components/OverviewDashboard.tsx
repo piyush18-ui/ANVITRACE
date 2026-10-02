@@ -5,12 +5,14 @@ import { ArrowRight, Database } from 'lucide-react';
 
 interface OverviewDashboardProps {
   onSelectAccount: (accountId: string) => void;
-  onNavigateToDataset: () => void;
+  onNavigateToNotice: (accountId: string) => void;
+  onNavigateToCases: () => void;
 }
 
 export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
   onSelectAccount,
-  onNavigateToDataset,
+  onNavigateToNotice,
+  onNavigateToCases,
 }) => {
   const [stats, setStats] = useState<DatasetStats | null>(null);
   const [status, setStatus] = useState<DatasetStatus | null>(null);
@@ -25,7 +27,7 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
         const [statsData, statusData, recoveryData] = await Promise.all([
           api.getDatasetStats().catch(() => null),
           api.getDatasetStatus().catch(() => null),
-          api.getRecoveryCandidates(undefined, 10).catch(() => ({ candidates: [] })),
+          api.getRecoveryCandidates(undefined, 25).catch(() => ({ candidates: [] })),
         ]);
         if (statsData) setStats(statsData);
         if (statusData) setStatus(statusData);
@@ -174,27 +176,27 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
             <div className="p-4 text-center space-y-2">
               <p className="text-xs text-on-surface-variant">No transaction dataset ingested yet.</p>
               <button
-                onClick={onNavigateToDataset}
+                onClick={onNavigateToCases}
                 className="px-3 py-1.5 bg-secondary-container hover:bg-secondary text-on-primary text-xs font-semibold rounded shadow-sm"
               >
-                Upload CSV Dataset
+                Register Case &amp; Ingest CSV
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Priority Investigation Queue from Real Recovery Candidates */}
+      {/* Flagged Fraudulent / Mule Accounts Board */}
       <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 bg-surface-container-low border-b border-outline-variant/30 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-600" />
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-pulse" />
             <h3 className="font-headline-md text-[14px] font-bold text-on-surface">
-              Priority Recovery Candidates ({candidates.length})
+              Detected Fraudulent &amp; High-Risk Mule Accounts ({candidates.length})
             </h3>
           </div>
           <span className="text-[11px] font-data-mono text-outline">
-            Ranked by Observed Net Flow
+            Priority Ranked by Suspicious Inflow &amp; Net Retention
           </span>
         </div>
 
@@ -202,27 +204,27 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
           <table className="w-full text-left text-[11px] font-data-mono">
             <thead className="bg-slate-50 border-b border-outline-variant/20 text-outline uppercase font-semibold">
               <tr>
-                <th className="py-2.5 px-4">ACCOUNT ID</th>
-                <th className="py-2.5 px-4 text-right">INFLOW</th>
-                <th className="py-2.5 px-4 text-right">OUTFLOW</th>
+                <th className="py-2.5 px-4">SUSPECT ACCOUNT</th>
+                <th className="py-2.5 px-4 text-right">TOTAL INFLOW</th>
+                <th className="py-2.5 px-4 text-right">TOTAL OUTFLOW</th>
                 <th className="py-2.5 px-4 text-right">OBSERVED NET FLOW</th>
                 <th className="py-2.5 px-3 text-right">RETENTION %</th>
-                <th className="py-2.5 px-3 text-center">MULE RISK</th>
-                <th className="py-2.5 px-4 text-center">ACTION</th>
+                <th className="py-2.5 px-3 text-center">MULE RISK SCORE</th>
+                <th className="py-2.5 px-4 text-center">INVESTIGATION ACTIONS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/15 text-on-surface">
               {candidates.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-on-surface-variant">
-                    {loading ? 'Loading candidates...' : hasData ? 'No accounts retaining net flow found in this dataset.' : 'No investigation data available. Upload a dataset to begin.'}
+                    {loading ? 'Scanning dataset for fraudulent accounts...' : hasData ? 'No suspicious mule accounts detected in this dataset.' : 'No investigation data available. Upload a dataset to begin.'}
                   </td>
                 </tr>
               ) : (
                 candidates.map((cand) => (
                   <tr key={cand.account_id} className="hover:bg-blue-50/40 transition-colors">
                     <td className="py-2.5 px-4 font-bold text-indigo-700">{cand.account_id}</td>
-                    <td className="py-2.5 px-4 text-right">
+                    <td className="py-2.5 px-4 text-right font-medium">
                       ₹{cand.total_incoming_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="py-2.5 px-4 text-right text-on-surface-variant">
@@ -242,16 +244,26 @@ export const OverviewDashboard: React.FC<OverviewDashboardProps> = ({
                           ? 'bg-amber-100 text-amber-800'
                           : 'bg-emerald-100 text-emerald-800'
                       }`}>
-                        {cand.mule_risk_index !== undefined ? cand.mule_risk_index.toFixed(1) : 'N/A'}
+                        {cand.mule_risk_index !== undefined ? `${cand.mule_risk_index.toFixed(1)} / 100` : 'N/A'}
                       </span>
                     </td>
                     <td className="py-2.5 px-4 text-center">
-                      <button
-                        onClick={() => onSelectAccount(cand.account_id)}
-                        className="px-3 py-1 bg-primary-container text-on-primary hover:bg-black rounded text-[11px] font-semibold transition-colors shadow-xs"
-                      >
-                        Investigate
-                      </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => onSelectAccount(cand.account_id)}
+                          className="px-2.5 py-1 bg-primary-container text-on-primary hover:bg-black rounded text-[10px] font-semibold transition-colors shadow-xs"
+                          title="Deep-dive into account risk and 4-hop lineage"
+                        >
+                          Deep-Dive
+                        </button>
+                        <button
+                          onClick={() => onNavigateToNotice(cand.account_id)}
+                          className="px-2.5 py-1 bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 rounded text-[10px] font-bold transition-colors shadow-xs"
+                          title="Generate official Bank Freeze Notice (Sec. 102)"
+                        >
+                          Freeze Notice
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

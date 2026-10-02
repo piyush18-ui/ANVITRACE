@@ -3,10 +3,7 @@ import React from 'react';
 export type ActiveTab =
   | 'overview'
   | 'cases'
-  | 'dataset-status'
   | 'investigate'
-  | 'evidence'
-  | 'recovery'
   | 'documents';
 
 interface SidebarProps {
@@ -16,14 +13,11 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, backendOnline }) => {
-  const navItems: Array<{ id: ActiveTab; label: string; icon: string }> = [
-    { id: 'overview', label: 'Dashboard', icon: 'dashboard' },
-    { id: 'cases', label: 'Cases', icon: 'verified' },
-    { id: 'dataset-status', label: 'Dataset', icon: 'database' },
-    { id: 'investigate', label: 'Investigate', icon: 'person_search' },
-    { id: 'evidence', label: 'Evidence', icon: 'fingerprint' },
-    { id: 'recovery', label: 'Recovery', icon: 'currency_exchange' },
-    { id: 'documents', label: 'Documents', icon: 'folder_special' },
+  const navItems: Array<{ id: ActiveTab; label: string; icon: string; description: string }> = [
+    { id: 'overview', label: 'Dashboard', icon: 'dashboard', description: 'Fraudulent accounts & telemetry' },
+    { id: 'cases', label: 'Cases & Evidence', icon: 'folder_open', description: 'Register case & upload CSV' },
+    { id: 'investigate', label: 'Account Deep-Dive', icon: 'manage_search', description: 'Search ID, score & lineage' },
+    { id: 'documents', label: 'Bank Freeze Notices', icon: 'gavel', description: 'Sec. 102 CrPC notice generator' },
   ];
 
   return (
@@ -57,14 +51,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, backe
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-xs transition-colors text-left ${
+                className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-xs transition-colors text-left ${
                   isActive
                     ? 'bg-primary-container text-on-primary font-semibold shadow-sm'
                     : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
                 }`}
               >
-                <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
-                <span className="font-label-lg text-xs">{item.label}</span>
+                <span className="material-symbols-outlined text-[19px] mt-0.5">{item.icon}</span>
+                <div className="flex flex-col min-w-0">
+                  <span className="font-label-lg text-xs font-bold leading-tight">{item.label}</span>
+                  <span className={`text-[10px] truncate leading-tight mt-0.5 ${isActive ? 'text-on-primary/80' : 'text-outline'}`}>
+                    {item.description}
+                  </span>
+                </div>
               </button>
             );
           })}

@@ -6,8 +6,6 @@ import { Header } from './components/Header';
 import { OverviewDashboard } from './components/OverviewDashboard';
 import { InvestigateWorkspace } from './components/InvestigateWorkspace';
 import { CaseManagementView } from './components/CaseManagementView';
-import { EvidenceView } from './components/EvidenceView';
-import { RecoveryView } from './components/RecoveryView';
 import { DocumentsView } from './components/DocumentsView';
 import { DatasetView } from './components/DatasetView';
 
@@ -39,9 +37,14 @@ export const App: React.FC = () => {
     setActiveTab('investigate');
   };
 
+  const handleNavigateToNotice = (acc: string) => {
+    setSelectedAccountId(acc);
+    setActiveTab('documents');
+  };
+
   return (
     <div className="flex h-screen bg-surface font-body-md text-on-surface antialiased overflow-hidden">
-      {/* Sidebar Navigation matching Stitch layout & theme */}
+      {/* Sidebar Navigation matching user requested 4 core stages */}
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -60,42 +63,45 @@ export const App: React.FC = () => {
 
         {/* Scrollable View Area */}
         <main className="flex-1 overflow-y-auto px-8 py-6">
+          {/* 1. Dashboard: Fraudulent accounts board & system overview */}
           {activeTab === 'overview' && (
             <OverviewDashboard
               onSelectAccount={handleSelectAccount}
+              onNavigateToNotice={handleNavigateToNotice}
+              onNavigateToCases={() => setActiveTab('cases')}
               onNavigateToDataset={() => setActiveTab('dataset-status')}
             />
           )}
 
+          {/* 2. Create Case & Upload Evidence (persistent across refresh) */}
           {activeTab === 'cases' && (
             <CaseManagementView
               onInvestigateAccount={handleSelectAccount}
+              onNavigateToNotice={handleNavigateToNotice}
               onNavigateToDataset={() => setActiveTab('dataset-status')}
               onNavigateToDocuments={() => setActiveTab('documents')}
             />
           )}
 
-          {activeTab === 'dataset-status' && (
-            <DatasetView />
-          )}
-
+          {/* 3. Account Deep-Dive: Search ID, Risk Score & Breakdown, Inflow/Outflow Lineage, SHA-256 Check */}
           {activeTab === 'investigate' && (
-            <InvestigateWorkspace initialAccountId={selectedAccountId} />
+            <InvestigateWorkspace
+              initialAccountId={selectedAccountId}
+              onNavigateToNotice={handleNavigateToNotice}
+            />
           )}
 
-          {activeTab === 'evidence' && (
-            <EvidenceView
+          {/* 4. Bank Freeze Notice Generator: Enter ID -> Section 102 CrPC PDF format */}
+          {activeTab === 'documents' && (
+            <DocumentsView
               initialAccountId={selectedAccountId}
               onInvestigateAccount={handleSelectAccount}
             />
           )}
 
-          {activeTab === 'recovery' && (
-            <RecoveryView onInvestigateAccount={handleSelectAccount} />
-          )}
-
-          {activeTab === 'documents' && (
-            <DocumentsView />
+          {/* Advanced / Technical Ingestion Diagnostics */}
+          {activeTab === 'dataset-status' && (
+            <DatasetView />
           )}
         </main>
       </div>
