@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import type { MoneyTrailEdge, GraphNode } from '../api';
-import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, ShieldAlert, ArrowDownLeft, ArrowUpRight, Target } from 'lucide-react';
 
 interface MoneyFlowGraphProps {
-  nodes?: GraphNode[];
+  nodes?: (GraphNode | string)[];
   edges: MoneyTrailEdge[];
   victimAccount: string;
   selectedHop: number;
@@ -21,103 +21,281 @@ export const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({
 }) => {
   const [zoom, setZoom] = useState(1);
   const [minAmountFilter, setMinAmountFilter] = useState<number>(0);
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const [flowFilter, setFlowFilter] = useState<'all' | 'inflow' | 'outflow'>('all');
 
-  // Filter edges based on selected hop depth and minimum amount
+  // Filter edges based on flow direction, hop depth, and minimum amount
   const filteredEdges = useMemo(() => {
-    return edges.filter(
-      (e) => e.hop <= selectedHop && (minAmountFilter === 0 || e.amount >= minAmountFilter)
-    );
-  }, [edges, selectedHop, minAmountFilter]);
+    return edges.filter((e) => {
+      const isUpstream = e.direction === 'upstream' || e.to_account === victimAccount;
 
-  // Compute layered X coordinates by hop level (0 = victim, 1..4 = hops)
-  const layout = useMemo(() => {
-    const columns: Record<number, string[]> = { 0: [victimAccount], 1: [], 2: [], 3: [], 4: [] };
-    const accountHops: Record<string, number> = { [victimAccount]: 0 };
+      // Filter by flow mode
+      if (flowFilter === 'inflow' && !isUpstream) return false;
+      if (flowFilter === 'outflow' && isUpstream) return false;
 
+      // Filter by amount
+      if (minAmountFilter > 0 && e.amount < minAmountFilter) return false;
+
+      // Filter by hop (upstream edges are direct sources; downstream respect selectedHop)
+      if (!isUpstream && e.hop > selectedHop) return false;
+
+      return true;
+    });
+  }, [edges, selectedHop, minAmountFilter, flowFilter, victimAccount]);
+
+  // Counts for UI filters
+  const counts = useMemo(() => {
+    let inflow = 0;
+    let outflow = 0;
+    edges.forEach((e) => {
+      if (e.direction === 'upstream' || e.to_account === victimAccount) {
+        inflow++;
+      } else {
+        outflow++;
+      }
+    });
+    return { inflow, outflow, total: edges.length };
+  }, [edges, victimAccount]);
+
+  // Bank institution code helper
+  const getBankCode = (accId: string) => {
+    const prefix = accId.slice(0, 4).toUpperCase();
+    const bankMap: Record<string, string> = {
+      SBIN: 'SBI',
+      HDFC: 'HDFC',
+      ICIC: 'ICICI',
+      KKBK: 'KOTAK',
+      PUNB: 'PNB',
+      BARB: 'BOB',
+      AIRP: 'AIRTEL',
+      PYTM: 'PAYTM',
+      IPOS: 'IPPB',
+      AXIS: 'AXIS',
+    };
+    return bankMap[prefix] || prefix.slice(0, 4) || 'ACC';
+  };
+
+  // Compute layered X coordinates:
+  // Column -1: Inflows (accounts that transferred money into this ID)
+  // Column  0: Investigated Target ID (focal account)
+  // Column  1..4: Transferred Beneficiary Accounts (Hop 1..4)
+  const { positions, dynamicHeight, canvasWidth, columns, minCol, maxCol } = useMemo(() => {
+    const cols: Record<number, string[]> = {
+      [-1]: [],
+      0: [victimAccount],
+      1: [],
+      2: [],
+      3: [],
+      4: [],
+    };
+    const accountCols: Record<string, number> = { [victimAccount]: 0 };
+
+    // 1. Identify all upstream senders (sources sending into victimAccount)
     filteredEdges.forEach((e) => {
-      if (!accountHops[e.to_account] || accountHops[e.to_account] > e.hop) {
-        accountHops[e.to_account] = e.hop;
+      const isUpstream = e.direction === 'upstream' || e.to_account === victimAccount;
+      if (isUpstream && e.from_account !== victimAccount) {
+        accountCols[e.from_account] = -1;
       }
     });
 
-    Object.entries(accountHops).forEach(([acc, hop]) => {
-      if (acc !== victimAccount && hop <= 4) {
-        if (!columns[hop]) columns[hop] = [];
-        if (!columns[hop].includes(acc)) columns[hop].push(acc);
+    // 2. Identify all downstream recipients across hops 1..4
+    filteredEdges.forEach((e) => {
+      const isUpstream = e.direction === 'upstream' || e.to_account === victimAccount;
+      if (!isUpstream && e.to_account !== victimAccount) {
+        const hop = Math.min(4, Math.max(1, e.hop));
+        if (accountCols[e.to_account] === undefined || accountCols[e.to_account] > hop) {
+          accountCols[e.to_account] = hop;
+        }
       }
     });
 
-    const positions: Record<string, { x: number; y: number; hop: number }> = {};
+    // 3. Fallback for counterparties on multi-hop intermediate edges
+    filteredEdges.forEach((e) => {
+      if (accountCols[e.from_account] === undefined) {
+        accountCols[e.from_account] = Math.max(0, e.hop - 1);
+      }
+      if (accountCols[e.to_account] === undefined) {
+        accountCols[e.to_account] = Math.min(4, Math.max(1, e.hop));
+      }
+    });
+
+    // 4. Also map any extra nodes passed via `nodes` prop
+    if (_nodes && Array.isArray(_nodes)) {
+      _nodes.forEach((nodeItem) => {
+        const nodeId = typeof nodeItem === 'string' ? nodeItem : nodeItem.id;
+        if (nodeId && accountCols[nodeId] === undefined) {
+          if (nodeId !== victimAccount) {
+            accountCols[nodeId] = 1;
+          }
+        }
+      });
+    }
+
+    // Populate columns
+    Object.entries(accountCols).forEach(([acc, col]) => {
+      if (acc === victimAccount) return;
+      if (!cols[col]) cols[col] = [];
+      if (!cols[col].includes(acc)) cols[col].push(acc);
+    });
+
+    const activeCols = Object.keys(cols)
+      .map(Number)
+      .filter((c) => cols[c] && cols[c].length > 0);
+    const minC = activeCols.length > 0 ? Math.min(...activeCols) : 0;
+    const maxC = activeCols.length > 0 ? Math.max(...activeCols) : 0;
+
+    // Height calculation based on max nodes in any single column
+    const maxInCol = Math.max(1, ...Object.values(cols).map((c) => c.length));
+    const nodeSpacing = 84;
+    const computedHeight = Math.max(500, (maxInCol + 1) * nodeSpacing);
+
+    const posMap: Record<string, { x: number; y: number; col: number }> = {};
     const colWidth = 240;
-    const canvasHeight = 440;
+    const leftMargin = 130;
 
-    Object.entries(columns).forEach(([hopStr, accs]) => {
-      const h = parseInt(hopStr, 10);
-      const x = 90 + h * colWidth;
+    Object.entries(cols).forEach(([colStr, accs]) => {
+      const col = parseInt(colStr, 10);
+      if (accs.length === 0) return;
+      const x = leftMargin + (col - minC) * colWidth;
       const count = accs.length;
       accs.forEach((acc, idx) => {
-        const spacing = canvasHeight / (count + 1);
+        const spacing = computedHeight / (count + 1);
         const y = spacing * (idx + 1);
-        positions[acc] = { x, y, hop: h };
+        posMap[acc] = { x, y, col };
       });
     });
 
-    return positions;
-  }, [filteredEdges, victimAccount]);
+    const computedWidth = Math.max(1160, 240 + (maxC - minC + 1) * colWidth);
+
+    return {
+      positions: posMap,
+      dynamicHeight: computedHeight,
+      canvasWidth: computedWidth,
+      columns: cols,
+      minCol: minC,
+      maxCol: maxC,
+    };
+  }, [filteredEdges, victimAccount, _nodes]);
+
+  // Aggregate stats per node for tooltip hover
+  const nodeStats = useMemo(() => {
+    const stats: Record<string, { inAmt: number; outAmt: number; inCount: number; outCount: number }> = {};
+    edges.forEach((e) => {
+      if (!stats[e.from_account]) stats[e.from_account] = { inAmt: 0, outAmt: 0, inCount: 0, outCount: 0 };
+      if (!stats[e.to_account]) stats[e.to_account] = { inAmt: 0, outAmt: 0, inCount: 0, outCount: 0 };
+
+      stats[e.from_account].outAmt += e.amount;
+      stats[e.from_account].outCount += 1;
+
+      stats[e.to_account].inAmt += e.amount;
+      stats[e.to_account].inCount += 1;
+    });
+    return stats;
+  }, [edges]);
 
   return (
-    <div className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 shadow-sm overflow-hidden flex flex-col">
-      {/* Top Graph Controls Bar matching Stitch */}
-      <div className="px-4 py-2.5 bg-surface-container-low border-b border-outline-variant/30 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-pulse" />
-          <span className="font-headline-md text-[13px] font-bold text-on-surface">Directional Money-Flow Graph</span>
-          <span className="text-[11px] text-on-surface-variant bg-surface-container px-2 py-0.5 rounded font-data-mono">
-            {filteredEdges.length} active edges
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden flex flex-col">
+      {/* Top Graph Controls Bar */}
+      <div className="px-5 py-3 bg-white border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-600" />
+          </span>
+          <span className="font-bold text-xs text-slate-900 tracking-tight">
+            360° Money-Flow &amp; Lineage Graph
+          </span>
+          <span className="text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full font-mono font-medium">
+            {filteredEdges.length} active edges • {Object.keys(positions).length} accounts
           </span>
         </div>
 
-        {/* Action Controls & Filters */}
+        {/* View Mode Filters */}
+        <div className="flex items-center gap-1.5 bg-slate-100/80 p-0.5 rounded-lg border border-slate-200/60 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => setFlowFilter('all')}
+            className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+              flowFilter === 'all'
+                ? 'bg-white text-slate-900 shadow-xs font-bold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            All Flow ({counts.total})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFlowFilter('inflow')}
+            className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer ${
+              flowFilter === 'inflow'
+                ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                : 'text-emerald-700 hover:bg-emerald-50'
+            }`}
+          >
+            <ArrowDownLeft size={13} />
+            <span>Inflows ({counts.inflow})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setFlowFilter('outflow')}
+            className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1 cursor-pointer ${
+              flowFilter === 'outflow'
+                ? 'bg-blue-600 text-white shadow-xs font-bold'
+                : 'text-blue-700 hover:bg-blue-50'
+            }`}
+          >
+            <ArrowUpRight size={13} />
+            <span>Transfers ({counts.outflow})</span>
+          </button>
+        </div>
+
+        {/* Action Controls & Depth Filters */}
         <div className="flex items-center gap-3">
           {/* Zoom controls */}
-          <div className="flex items-center bg-surface-container-lowest border border-outline-variant/40 rounded-md p-0.5">
+          <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg p-0.5">
             <button
-              onClick={() => setZoom((z) => Math.max(0.6, z - 0.1))}
-              className="p-1 hover:bg-surface-container text-on-surface-variant hover:text-on-surface rounded"
+              type="button"
+              onClick={() => setZoom((z) => Math.max(0.5, z - 0.1))}
+              className="p-1 hover:bg-slate-200 text-slate-600 rounded cursor-pointer"
               title="Zoom Out"
             >
-              <ZoomOut size={14} />
+              <ZoomOut size={13} />
             </button>
-            <span className="text-[10px] font-data-mono px-1.5 text-on-surface-variant font-medium">
+            <span className="text-[10px] font-mono px-2 text-slate-600 font-semibold">
               {Math.round(zoom * 100)}%
             </span>
             <button
+              type="button"
               onClick={() => setZoom((z) => Math.min(1.6, z + 0.1))}
-              className="p-1 hover:bg-surface-container text-on-surface-variant hover:text-on-surface rounded"
+              className="p-1 hover:bg-slate-200 text-slate-600 rounded cursor-pointer"
               title="Zoom In"
             >
-              <ZoomIn size={14} />
+              <ZoomIn size={13} />
             </button>
             <button
+              type="button"
               onClick={() => setZoom(1)}
-              className="p-1 hover:bg-surface-container text-on-surface-variant hover:text-on-surface rounded"
-              title="Reset View"
+              className="p-1 hover:bg-slate-200 text-slate-600 rounded cursor-pointer"
+              title="Reset Zoom"
             >
-              <Maximize2 size={14} />
+              <Maximize2 size={13} />
             </button>
           </div>
 
           {/* Depth Selector Tabs: Hop 1 - Hop 4 */}
-          <div className="flex items-center gap-1 bg-surface-container-lowest border border-outline-variant/40 p-0.5 rounded-lg text-[11px] font-data-mono font-semibold">
-            <span className="text-[10px] text-on-surface-variant px-1.5 uppercase tracking-wide">DEPTH:</span>
+          <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 p-0.5 rounded-lg text-xs font-semibold">
+            <span className="text-[10px] text-slate-400 px-1.5 uppercase font-bold tracking-wider">
+              DEPTH:
+            </span>
             {[1, 2, 3, 4].map((h) => (
               <button
                 key={h}
+                type="button"
                 onClick={() => onSelectHop(h)}
-                className={`px-2.5 py-1 rounded transition-all ${
+                className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                   selectedHop === h
-                    ? 'bg-primary-container text-on-primary shadow-sm font-bold'
-                    : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                    ? 'bg-slate-900 text-white shadow-xs font-bold'
+                    : 'text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                 }`}
               >
                 Hop {h}
@@ -129,7 +307,7 @@ export const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({
           <select
             value={minAmountFilter}
             onChange={(e) => setMinAmountFilter(Number(e.target.value))}
-            className="text-[11px] font-data-mono bg-surface-container-lowest border border-outline-variant/40 rounded-md px-2 py-1 text-on-surface focus:outline-none"
+            className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 font-medium focus:outline-none focus:ring-1 focus:ring-blue-600"
           >
             <option value="0">All Amounts</option>
             <option value="10000">Filter ≥ ₹10K</option>
@@ -139,39 +317,125 @@ export const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({
         </div>
       </div>
 
-      {/* SVG Canvas Area */}
-      <div className="relative h-[440px] bg-slate-50/50 overflow-hidden select-none">
-        {filteredEdges.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-on-surface-variant gap-2 font-data-mono">
-            <span className="material-symbols-outlined text-[36px] text-outline">account_tree</span>
-            <p className="text-xs font-semibold text-on-surface">No transaction graph available for this investigation.</p>
-            <span className="text-[11px] text-outline">Execute a trace or adjust hop / volume filters above.</span>
+      {/* SVG Canvas Area with dynamic height & smooth scroll */}
+      <div className="relative h-[500px] bg-slate-50/70 overflow-auto select-none">
+        {filteredEdges.length === 0 && Object.keys(positions).length <= 1 ? (
+          <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+            <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 shadow-xs">
+              <ShieldAlert size={22} />
+            </div>
+            <p className="text-xs font-bold text-slate-700">No transaction trail found for this node.</p>
+            <span className="text-[11px] text-slate-400">Execute a trace or adjust hop / volume threshold above.</span>
           </div>
         ) : (
           <svg
-            className="w-full h-full cursor-grab active:cursor-grabbing transition-transform duration-200"
-            style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
-            viewBox="0 0 1100 440"
+            className="cursor-grab active:cursor-grabbing transition-transform duration-200"
+            style={{
+              width: `${canvasWidth * zoom}px`,
+              height: `${dynamicHeight * zoom}px`,
+              transformOrigin: 'top left',
+            }}
+            viewBox={`0 0 ${canvasWidth} ${dynamicHeight}`}
           >
             <defs>
               {/* Directed Arrow Markers */}
-              <marker id="arrow" viewBox="0 0 10 10" refX="24" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                <path d="M 0 1 L 10 5 L 0 9 z" fill="#131b2e" />
+              <marker
+                id="arrow-outflow"
+                viewBox="0 0 10 10"
+                refX="24"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#2563eb" />
               </marker>
-              <marker id="arrow-cycle" viewBox="0 0 10 10" refX="24" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                <path d="M 0 1 L 10 5 L 0 9 z" fill="#dc2626" />
+
+              <marker
+                id="arrow-inflow"
+                viewBox="0 0 10 10"
+                refX="24"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#059669" />
+              </marker>
+
+              <marker
+                id="arrow-cycle"
+                viewBox="0 0 10 10"
+                refX="24"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 1 L 10 5 L 0 9 z" fill="#ef4444" />
               </marker>
             </defs>
 
+            {/* Column Headers at the top */}
+            {Object.entries(columns).map(([colStr, accs]) => {
+              const col = parseInt(colStr, 10);
+              if (accs.length === 0) return null;
+              const x = 130 + (col - minCol) * 240;
+              const isUpstream = col < 0;
+              const isTarget = col === 0;
+
+              const headerTitle = isUpstream
+                ? 'INFLOW SOURCES'
+                : isTarget
+                ? 'TARGET ACCOUNT'
+                : `HOP ${col} (TRANSFERS)`;
+
+              const bgColor = isUpstream ? '#ecfdf5' : isTarget ? '#fef3c7' : '#eff6ff';
+              const borderColor = isUpstream ? '#a7f3d0' : isTarget ? '#fde68a' : '#bfdbfe';
+              const textColor = isUpstream ? '#065f46' : isTarget ? '#92400e' : '#1e40af';
+
+              return (
+                <g key={col} transform={`translate(${x}, 24)`}>
+                  <rect
+                    x={-68}
+                    y={-14}
+                    width={136}
+                    height={25}
+                    rx={12}
+                    fill={bgColor}
+                    stroke={borderColor}
+                    strokeWidth={1}
+                  />
+                  <text
+                    x={0}
+                    y={3}
+                    textAnchor="middle"
+                    fill={textColor}
+                    className="text-[10px] font-mono font-bold tracking-tight"
+                  >
+                    {headerTitle}
+                  </text>
+                </g>
+              );
+            })}
+
             {/* Edge Lines */}
             {filteredEdges.map((edge) => {
-              const fromPos = layout[edge.from_account];
-              const toPos = layout[edge.to_account];
+              const fromPos = positions[edge.from_account];
+              const toPos = positions[edge.to_account];
               if (!fromPos || !toPos) return null;
 
-              // Cubic bezier curve between nodes
+              const isUpstream = edge.direction === 'upstream' || toPos.col === 0 && fromPos.col < 0;
+              const strokeColor = edge.is_cycle ? '#ef4444' : isUpstream ? '#059669' : '#3b82f6';
+              const markerId = edge.is_cycle
+                ? 'url(#arrow-cycle)'
+                : isUpstream
+                ? 'url(#arrow-inflow)'
+                : 'url(#arrow-outflow)';
+
+              // Smooth cubic bezier curve between nodes
               const dx = toPos.x - fromPos.x;
-              const pathD = `M ${fromPos.x} ${fromPos.y} C ${fromPos.x + dx * 0.5} ${fromPos.y}, ${toPos.x - dx * 0.5} ${toPos.y}, ${toPos.x} ${toPos.y}`;
+              const pathD = `M ${fromPos.x} ${fromPos.y} C ${fromPos.x + dx * 0.45} ${fromPos.y}, ${toPos.x - dx * 0.45} ${toPos.y}, ${toPos.x} ${toPos.y}`;
 
               const midX = (fromPos.x + toPos.x) / 2;
               const midY = (fromPos.y + toPos.y) / 2 - 8;
@@ -181,81 +445,180 @@ export const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({
                   <path
                     d={pathD}
                     fill="none"
-                    stroke={edge.is_cycle ? '#dc2626' : '#2563eb'}
-                    strokeWidth={Math.min(4, Math.max(1.5, Math.log10(edge.amount + 1) * 0.8))}
+                    stroke={strokeColor}
+                    strokeWidth={Math.min(3.5, Math.max(1.5, Math.log10(edge.amount + 1) * 0.75))}
                     strokeDasharray={edge.is_cycle ? '4 3' : undefined}
-                    markerEnd={edge.is_cycle ? 'url(#arrow-cycle)' : 'url(#arrow)'}
-                    className="opacity-75 group-hover:opacity-100 group-hover:stroke-indigo-600 transition-opacity"
+                    markerEnd={markerId}
+                    className="opacity-75 group-hover:opacity-100 transition-opacity"
                   />
-                  {/* Amount Pill */}
+                  {/* Amount Pill Badge */}
                   <rect
                     x={midX - 32}
                     y={midY - 9}
                     width={64}
-                    height={16}
-                    rx={3}
+                    height={18}
+                    rx={5}
                     fill="#ffffff"
-                    stroke={edge.is_cycle ? '#fca5a5' : '#bfdbfe'}
+                    stroke={edge.is_cycle ? '#fca5a5' : isUpstream ? '#a7f3d0' : '#cbd5e1'}
                     strokeWidth={1}
-                    className="shadow-sm"
+                    className="shadow-xs"
                   />
                   <text
                     x={midX}
-                    y={midY + 2.5}
+                    y={midY + 3.5}
                     textAnchor="middle"
-                    className="text-[9px] font-data-mono font-bold fill-slate-800"
+                    className={`text-[9px] font-mono font-bold ${
+                      edge.is_cycle ? 'fill-rose-700' : isUpstream ? 'fill-emerald-700' : 'fill-slate-800'
+                    }`}
                   >
-                    ₹{edge.amount >= 100000 ? `${(edge.amount / 100000).toFixed(1)}L` : `${Math.round(edge.amount / 1000)}k`}
+                    {isUpstream ? '+' : ''}₹{edge.amount >= 100000 ? `${(edge.amount / 100000).toFixed(1)}L` : `${Math.round(edge.amount / 1000)}k`}
                   </text>
                 </g>
               );
             })}
 
             {/* Nodes */}
-            {Object.entries(layout).map(([account, pos]) => {
-              const isVictim = account === victimAccount;
+            {Object.entries(positions).map(([account, pos]) => {
+              const isTarget = account === victimAccount;
+              const isUpstream = pos.col < 0;
+              const bankCode = getBankCode(account);
+              const isHovered = hoveredNode === account;
+              const stats = nodeStats[account] || { inAmt: 0, outAmt: 0, inCount: 0, outCount: 0 };
+
+              // Ring and fill styling
+              let circleFill = '#ffffff';
+              let circleStroke = '#3b82f6';
+              let badgeFill = '#0f172a';
+              let badgeText = `${bankCode}:${account.slice(-5)}`;
+
+              if (isTarget) {
+                circleFill = '#fef3c7';
+                circleStroke = '#d97706';
+                badgeFill = '#78350f';
+                badgeText = `★ TARGET: ${account.slice(0, 10)}`;
+              } else if (isUpstream) {
+                circleFill = isHovered ? '#d1fae5' : '#ecfdf5';
+                circleStroke = '#059669';
+                badgeFill = '#065f46';
+                badgeText = `SRC: ${bankCode}:${account.slice(-5)}`;
+              } else if (isHovered) {
+                circleFill = '#dbeafe';
+                circleStroke = '#1d4ed8';
+              }
+
               return (
                 <g
                   key={account}
                   transform={`translate(${pos.x}, ${pos.y})`}
                   className="cursor-pointer group"
                   onClick={() => onSelectAccount && onSelectAccount(account)}
+                  onMouseEnter={() => setHoveredNode(account)}
+                  onMouseLeave={() => setHoveredNode(null)}
                 >
-                  {/* Glow effect on hover */}
-                  <circle
-                    r={isVictim ? 26 : 22}
-                    fill={isVictim ? '#fee2e2' : '#eff6ff'}
-                    stroke={isVictim ? '#ef4444' : '#3b82f6'}
-                    strokeWidth={isVictim ? 2.5 : 2}
-                    className="shadow-sm group-hover:stroke-indigo-600 group-hover:r-24 transition-all"
-                  />
-                  {/* Center Icon */}
-                  <text
-                    textAnchor="middle"
-                    dominantBaseline="central"
-                    className={`material-symbols-outlined text-[15px] ${isVictim ? 'fill-rose-700' : 'fill-blue-700'}`}
-                  >
-                    {isVictim ? 'person' : 'account_balance'}
-                  </text>
+                  {/* Subtle outer glow when hovered */}
+                  {isHovered && (
+                    <circle
+                      r={isTarget ? 30 : 25}
+                      fill="none"
+                      stroke={isTarget ? '#f59e0b' : isUpstream ? '#10b981' : '#3b82f6'}
+                      strokeWidth={2}
+                      opacity={0.4}
+                    />
+                  )}
 
-                  {/* Account Badge below */}
+                  {/* Node Circle */}
+                  <circle
+                    r={isTarget ? 24 : 20}
+                    fill={circleFill}
+                    stroke={circleStroke}
+                    strokeWidth={isTarget ? 2.5 : 2}
+                    className="shadow-sm transition-all"
+                  />
+
+                  {/* Clean Vector SVG Icon by Role */}
+                  {isTarget ? (
+                    // Target Crosshairs / Star Emblem
+                    <g transform="translate(-8, -8)">
+                      <path
+                        d="M8 1 L10 5.5 L15 6 L11.5 9.5 L12.5 14.5 L8 12 L3.5 14.5 L4.5 9.5 L1 6 L6 5.5 Z"
+                        fill="#d97706"
+                        stroke="#b45309"
+                        strokeWidth="0.5"
+                      />
+                    </g>
+                  ) : isUpstream ? (
+                    // Inflow Arrow Path
+                    <g transform="translate(-7, -7)">
+                      <path
+                        d="M3 3 L11 11 M11 5 L11 11 L5 11"
+                        stroke="#059669"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        fill="none"
+                      />
+                    </g>
+                  ) : (
+                    // Bank Pillar Vector Path
+                    <g transform="translate(-7, -7)">
+                      <path
+                        d="M1 4 L7 1 L13 4 M2 4 L2 12 M5 4 L5 12 M9 4 L9 12 M12 4 L12 12 M1 12 L13 12"
+                        stroke="#2563eb"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        fill="none"
+                      />
+                    </g>
+                  )}
+
+                  {/* Account Badge below node */}
                   <rect
-                    x={-55}
-                    y={isVictim ? 30 : 26}
-                    width={110}
+                    x={isTarget ? -58 : -50}
+                    y={isTarget ? 28 : 24}
+                    width={isTarget ? 116 : 100}
                     height={18}
-                    rx={4}
-                    fill="#131b2e"
-                    className="shadow-sm"
+                    rx={5}
+                    fill={badgeFill}
+                    stroke={isHovered ? '#60a5fa' : '#334155'}
+                    strokeWidth={1}
+                    className="shadow-xs"
                   />
                   <text
                     x={0}
-                    y={isVictim ? 42 : 38}
+                    y={isTarget ? 40 : 36}
                     textAnchor="middle"
-                    className="text-[9px] font-data-mono font-medium fill-white"
+                    className="text-[9px] font-mono font-bold fill-white"
                   >
-                    {isVictim ? `★ ${account.slice(0, 11)}` : account.slice(0, 12)}
+                    {badgeText}
                   </text>
+
+                  {/* Hover Tooltip Card */}
+                  {isHovered && (
+                    <g transform="translate(0, -68)" className="pointer-events-none">
+                      <rect
+                        x={-90}
+                        y={0}
+                        width={180}
+                        height={58}
+                        rx={8}
+                        fill="#0f172a"
+                        opacity={0.95}
+                        stroke="#334155"
+                        strokeWidth={1}
+                        className="shadow-xl"
+                      />
+                      <text x={0} y={15} textAnchor="middle" fill="#f8fafc" className="text-[10px] font-mono font-bold">
+                        {account}
+                      </text>
+                      <text x={0} y={30} textAnchor="middle" fill="#34d399" className="text-[9px] font-mono">
+                        Inflow: ₹{stats.inAmt.toLocaleString('en-IN')} ({stats.inCount} tx)
+                      </text>
+                      <text x={0} y={44} textAnchor="middle" fill="#93c5fd" className="text-[9px] font-mono">
+                        Outflow: ₹{stats.outAmt.toLocaleString('en-IN')} ({stats.outCount} tx)
+                      </text>
+                    </g>
+                  )}
                 </g>
               );
             })}
@@ -264,22 +627,28 @@ export const MoneyFlowGraph: React.FC<MoneyFlowGraphProps> = ({
       </div>
 
       {/* Legend & Forensic Attribution Info */}
-      <div className="px-4 py-2 bg-surface-container-low border-t border-outline-variant/30 flex items-center justify-between text-[11px] text-on-surface-variant font-data-mono">
-        <div className="flex items-center gap-4">
+      <div className="px-5 py-2.5 bg-white border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-medium flex-wrap gap-3">
+        <div className="flex items-center gap-4 flex-wrap">
           <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-            Victim Origin (★)
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+            <span className="text-slate-700 font-semibold">Funds Source (Inflow)</span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+            <span className="text-slate-700 font-semibold">Investigated ID (★ Focus)</span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-            Attributed Beneficiary
+            <span className="text-slate-700 font-semibold">Transferred Accounts (Outflow)</span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-0.5 bg-rose-600 border-dashed" />
-            Detected Cycle
+            <span className="text-slate-700 font-semibold">Detected Cycle</span>
           </span>
         </div>
-        <span>Conservative Lineage Attribution • Double-Count Prevention Active</span>
+        <span className="text-[11px] text-slate-400 font-mono">
+          Full 360° Flow Graph (Sources → Target Account → Transferred Hops)
+        </span>
       </div>
     </div>
   );

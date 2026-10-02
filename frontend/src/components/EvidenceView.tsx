@@ -81,7 +81,7 @@ export const EvidenceView: React.FC<EvidenceViewProps> = ({
               Evidence Registry &amp; Cryptographic Integrity
             </h1>
             <p className="text-[12px] text-on-surface-variant font-data-mono mt-0.5">
-              Deterministic evidence snapshots, Merkle provenance root, and SHA-256 digests generated from DuckDB ledger.
+              Deterministic evidence snapshots, Merkle provenance root, and SHA-256 digests.
             </p>
           </div>
 
@@ -138,7 +138,7 @@ export const EvidenceView: React.FC<EvidenceViewProps> = ({
           </div>
           <h3 className="font-headline-md text-base font-bold text-on-surface">No Evidence Snapshots Recorded</h3>
           <p className="text-xs text-on-surface-variant max-w-md mx-auto font-data-mono">
-            Enter an Account ID above to seal an immutable Section 65B compliant SHA-256 evidence snapshot directly from the backend DuckDB ledger.
+            Enter an Account ID above to seal an immutable Section 65B compliant SHA-256 evidence snapshot.
           </p>
         </div>
       ) : (

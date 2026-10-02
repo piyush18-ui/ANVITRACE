@@ -59,6 +59,7 @@ export interface MoneyTrailEdge {
   lineage_status: string;
   is_cycle: boolean;
   parent_record_id?: string;
+  direction?: 'root' | 'upstream' | 'downstream';
   provenance: Record<string, any>;
 }
 
@@ -217,15 +218,104 @@ export const api = {
     return res.json();
   },
 
-  uploadDataset: async (file: File): Promise<any> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    const res = await fetch(`${API_BASE}/dataset/upload`, {
-      method: 'POST',
-      body: formData,
+  uploadDataset: (
+    file: File,
+    onProgress?: (progress: { percent: number; stage: string; loaded?: number; total?: number }) => void
+  ): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const formData = new FormData();
+      formData.append('file', file);
+
+      xhr.open('POST', `${API_BASE}/dataset/upload`);
+
+      if (onProgress) {
+        onProgress({ percent: 5, stage: 'Preparing evidence CSV payload...', loaded: 0, total: file.size });
+      }
+
+      // Track network transfer (5% to 50%)
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && onProgress) {
+          const uploadPercent = Math.min(50, Math.round(5 + (event.loaded / event.total) * 45));
+          const mbLoaded = (event.loaded / (1024 * 1024)).toFixed(1);
+          const mbTotal = (event.total / (1024 * 1024)).toFixed(1);
+          onProgress({
+            percent: uploadPercent,
+            stage: `Streaming evidence CSV payload (${mbLoaded} MB / ${mbTotal} MB)...`,
+            loaded: event.loaded,
+            total: event.total,
+          });
+        }
+      };
+
+      // When all bytes are uploaded, backend processes 2M+ rows in DuckDB
+      let processingTimer: any = null;
+      xhr.upload.onload = () => {
+        if (onProgress) {
+          onProgress({
+            percent: 55,
+            stage: 'Calculating SHA-256 cryptographic integrity hash...',
+            loaded: file.size,
+            total: file.size,
+          });
+          let p = 55;
+          processingTimer = setInterval(() => {
+            p += Math.min(6, Math.max(1, Math.floor((95 - p) / 5)));
+            if (p > 95) p = 95;
+            let stageText = 'Validating CSV schema and record delimiters...';
+            if (p > 65 && p <= 80) stageText = 'Processing and normalizing transaction records...';
+            if (p > 80) stageText = 'Indexing transaction graph & building traversal cache...';
+            if (onProgress) {
+              onProgress({
+                percent: p,
+                stage: stageText,
+                loaded: file.size,
+                total: file.size,
+              });
+            }
+          }, 1100);
+        }
+      };
+
+      xhr.onload = () => {
+        if (processingTimer) clearInterval(processingTimer);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (onProgress) {
+              onProgress({
+                percent: 100,
+                stage: 'Ingestion complete! All records verified.',
+                loaded: file.size,
+                total: file.size,
+              });
+            }
+            resolve(data);
+          } catch (e) {
+            reject(new Error('Failed to parse server response'));
+          }
+        } else {
+          try {
+            const err = JSON.parse(xhr.responseText);
+            reject(new Error(err.detail || 'Dataset upload failed'));
+          } catch {
+            reject(new Error(`Upload failed with HTTP ${xhr.status}`));
+          }
+        }
+      };
+
+      xhr.onerror = () => {
+        if (processingTimer) clearInterval(processingTimer);
+        reject(new Error('Network error during file upload'));
+      };
+
+      xhr.ontimeout = () => {
+        if (processingTimer) clearInterval(processingTimer);
+        reject(new Error('Upload timed out'));
+      };
+
+      xhr.send(formData);
     });
-    if (!res.ok) throw new Error('Dataset upload failed');
-    return res.json();
   },
 
   resetDataset: async (): Promise<{ status: string; message: string }> => {

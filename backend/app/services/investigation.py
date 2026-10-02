@@ -8,7 +8,7 @@ import duckdb
 from app.algorithms.amount_lineage import AmountLineageEngine
 from app.algorithms.temporal_traversal import TemporalTraversalEngine
 from app.indexes.manager import ForensicIndexManager
-from app.schemas.graph import MoneyTrailGraph
+from app.schemas.graph import MoneyTrailEdge, MoneyTrailGraph
 from app.schemas.investigation import (
     EvidenceMetadata,
     InvestigationParameters,
@@ -63,19 +63,49 @@ class InvestigationService:
             min_amount=min_amount,
         )
 
+        # 2b. Fetch incoming transactions (accounts from which money came into this account)
+        incoming_txs = traversal_engine.get_incoming_transactions(victim_account)
+
         # 3. Calculate financial amount lineage
         victim_amt = float(victim_tx["Amount"]) if victim_tx else 0.0
+        if victim_amt <= 0.0 and incoming_txs:
+            victim_amt = sum(e["amount"] for e in incoming_txs)
+
         lineage_edges = AmountLineageEngine.calculate_lineage(
             victim_amount=victim_amt,
             traversal_edges=raw_edges,
         )
 
-        # 4. Construct graph object
-        nodes_set: set[str] = set()
+        # Wrap incoming transactions into upstream edges
+        upstream_edges: list[MoneyTrailEdge] = []
+        for inc in incoming_txs:
+            upstream_edges.append(
+                MoneyTrailEdge(
+                    hop=1,
+                    record_id=inc["record_id"],
+                    Transaction_ID=inc["Transaction_ID"],
+                    from_account=inc["from_account"],
+                    to_account=inc["to_account"],
+                    amount=inc["amount"],
+                    timestamp=inc["timestamp"],
+                    payment_mode=inc["payment_mode"],
+                    attributable_amount=inc["amount"],
+                    lineage_status="traced",
+                    is_cycle=False,
+                    parent_record_id=None,
+                    direction="upstream",
+                    provenance=inc.get("provenance", {}),
+                )
+            )
+
+        all_edges = upstream_edges + lineage_edges
+
+        # 4. Construct graph object with all connected account IDs
+        nodes_set: set[str] = {victim_account}
         total_attributed = 0.0
         max_hop_seen = 0
 
-        for edge in lineage_edges:
+        for edge in all_edges:
             nodes_set.add(edge.from_account)
             nodes_set.add(edge.to_account)
             total_attributed += edge.attributable_amount
@@ -84,7 +114,7 @@ class InvestigationService:
 
         graph_obj = MoneyTrailGraph(
             nodes=sorted(nodes_set),
-            edges=lineage_edges,
+            edges=all_edges,
             total_hops_found=max_hop_seen,
             total_attributed_amount=round(total_attributed, 2),
         )
@@ -100,8 +130,8 @@ class InvestigationService:
         )
 
         # 5. Build evidence metadata with full provenance
-        edge_record_ids = [e.record_id for e in lineage_edges]
-        edge_tx_ids = [e.Transaction_ID for e in lineage_edges]
+        edge_record_ids = [e.record_id for e in all_edges]
+        edge_tx_ids = [e.Transaction_ID for e in all_edges]
         evidence_meta = EvidenceMetadata(
             record_ids=edge_record_ids,
             transaction_ids=edge_tx_ids,
@@ -114,7 +144,7 @@ class InvestigationService:
             investigation_id=investigation_id,
             victim=victim_account,
             hops_found=max_hop_seen,
-            edges_count=len(lineage_edges),
+            edges_count=len(all_edges),
             duration_ms=duration_ms,
         )
 
@@ -124,7 +154,7 @@ class InvestigationService:
             victim_account=victim_account,
             victim_transaction=victim_tx,
             parameters=params,
-            money_trail=lineage_edges,
+            money_trail=all_edges,
             graph=graph_obj,
             execution_time_ms=duration_ms,
             layer_candidates=[],

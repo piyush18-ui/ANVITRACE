@@ -25,6 +25,7 @@ class MoneyTrailEdge(BaseModel):
     )
     is_cycle: bool = False
     parent_record_id: str | None = None
+    direction: str = Field("downstream", description="'root' | 'upstream' | 'downstream'")
     provenance: dict[str, Any] = Field(default_factory=dict)
 
 

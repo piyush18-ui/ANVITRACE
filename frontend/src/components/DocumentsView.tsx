@@ -1,7 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import type { DocumentResponse } from '../api';
-import { ShieldAlert, Download, FileText, CheckCircle2, AlertCircle, Trash2, ArrowUpRight } from 'lucide-react';
+import {
+  ShieldAlert,
+  Download,
+  FileText,
+  CheckCircle2,
+  AlertCircle,
+  Trash2,
+  ArrowUpRight,
+  Gavel,
+  Check,
+  Copy,
+} from 'lucide-react';
 
 interface DocumentsViewProps {
   initialAccountId?: string;
@@ -31,6 +42,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
 
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [copiedDocId, setCopiedDocId] = useState<string | null>(null);
 
   // Real generated documents list with localStorage persistence across refreshes
   const [generatedDocs, setGeneratedDocs] = useState<Array<{
@@ -66,7 +78,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
         if (c.targetAccount && !freezeTarget) setFreezeTarget(c.targetAccount);
         if (c.targetAccount && !diaryVictim) setDiaryVictim(c.targetAccount);
       }
-    } catch {}
+    } catch { }
   }, []);
 
   const saveGeneratedDocs = (docs: Array<{
@@ -165,56 +177,65 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
     }
   };
 
+  const copyDocId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    setCopiedDocId(id);
+    setTimeout(() => setCopiedDocId(null), 2000);
+  };
+
   return (
     <div className="space-y-6 pb-16 select-none max-w-7xl mx-auto">
       {/* Header Deck */}
-      <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/30 shadow-sm space-y-1">
-        <div className="flex items-center justify-between">
+      <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <span className="text-[11px] font-data-mono font-bold uppercase tracking-wider text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-              LEGAL NOTICE ENGINE • SEC. 102 CrPC
-            </span>
-            <h1 className="font-headline-lg text-2xl font-bold text-on-surface mt-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded border border-rose-200 uppercase tracking-wider">
+                LEGAL FORENSIC PIPELINE • SEC. 102 CrPC
+              </span>
+            </div>
+            <h1 className="text-xl font-bold text-slate-900 mt-2 tracking-tight">
               Bank Freeze Notice Generator
             </h1>
-            <p className="text-xs text-on-surface-variant font-data-mono mt-1">
+            <p className="text-xs text-slate-500 mt-0.5">
               Issue court-admissible debit freeze requisitions directly to Bank Nodal Officers. Enter the suspect account ID to produce an official Section 102 CrPC PDF notice with cryptographic SHA-256 seal.
             </p>
           </div>
-          <div className="hidden sm:flex items-center gap-2">
-            <span className="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-data-mono font-bold flex items-center gap-1.5">
-              <CheckCircle2 size={14} /> PDF GENERATION READY
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-1.5">
+              <CheckCircle2 size={15} className="text-emerald-600" />
+              <span>PDF Generator Ready</span>
             </span>
           </div>
         </div>
       </div>
 
       {error && (
-        <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2 font-data-mono">
+        <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2 font-medium">
           <AlertCircle size={16} />
           <span>{error}</span>
         </div>
       )}
 
       {successMsg && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2 font-data-mono">
-          <CheckCircle2 size={16} />
+        <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2 font-medium">
+          <CheckCircle2 size={16} className="text-emerald-600" />
           <span>{successMsg}</span>
         </div>
       )}
 
-      {/* Primary Section: Bank Freeze Notice Generator */}
-      <div className="bg-surface-container-lowest p-6 rounded-2xl border border-rose-500/20 shadow-sm space-y-5">
-        <div className="flex items-center justify-between border-b border-outline-variant/20 pb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center text-rose-700">
-              <ShieldAlert size={18} />
+      {/* Primary Generator Card: Section 102 CrPC Notice */}
+      <div className="bg-white p-6 rounded-2xl border border-rose-200/80 shadow-xs space-y-5">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-700">
+              <Gavel size={18} />
             </div>
             <div>
-              <h2 className="font-headline-md text-base font-bold text-on-surface">
+              <h2 className="text-base font-bold text-slate-900">
                 Generate Section 102 CrPC Account Freeze Requisition
               </h2>
-              <p className="text-[11px] text-on-surface-variant font-data-mono">
+              <p className="text-xs text-slate-500">
                 Mandatory statutory notice directing the bank to freeze all debit transactions on the recipient mule account immediately.
               </p>
             </div>
@@ -222,32 +243,32 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
           <button
             type="button"
             onClick={() => setShowCaseDiarySection(!showCaseDiarySection)}
-            className="text-xs font-data-mono text-outline hover:text-on-surface underline hover:no-underline"
+            className="text-xs text-slate-500 hover:text-slate-900 underline font-medium"
           >
-            {showCaseDiarySection ? 'Hide Rule 172 Case Diary' : 'Switch / View Rule 172 Case Diary'}
+            {showCaseDiarySection ? 'Hide Rule 172 Case Diary' : 'Switch to Rule 172 Case Diary'}
           </button>
         </div>
 
         <form onSubmit={handleGenerateFreeze} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-data-mono">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
             {/* Target Account */}
             <div className="md:col-span-2 lg:col-span-1">
-              <label className="text-on-surface font-semibold text-[11px] block mb-1">
+              <label className="text-slate-700 font-bold text-[11px] block mb-1">
                 TARGET ACCOUNT ID <span className="text-rose-600">*</span>
               </label>
               <input
                 type="text"
                 value={freezeTarget}
                 onChange={(e) => setFreezeTarget(e.target.value)}
-                placeholder="e.g. ACC_48291"
-                className="w-full p-2.5 bg-surface-container-low border border-rose-300 rounded-lg text-on-surface font-mono font-bold focus:outline-none focus:ring-2 focus:ring-rose-500"
+                placeholder="e.g. SBIN10001486"
+                className="w-full p-2.5 bg-slate-50 border border-rose-300 rounded-xl text-slate-900 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-600"
               />
-              <span className="text-[10px] text-outline mt-1 block">Account to be debited-frozen</span>
+              <span className="text-[10px] text-slate-400 mt-1 block">Account to be debited-frozen</span>
             </div>
 
             {/* Target Bank Name */}
             <div>
-              <label className="text-on-surface font-semibold text-[11px] block mb-1">
+              <label className="text-slate-700 font-bold text-[11px] block mb-1">
                 BANK NAME (OPTIONAL)
               </label>
               <input
@@ -255,39 +276,39 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 value={bankName}
                 onChange={(e) => setBankName(e.target.value)}
                 placeholder="e.g. State Bank of India / HDFC Bank"
-                className="w-full p-2.5 bg-surface-container-low border border-outline-variant/40 rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
               />
-              <span className="text-[10px] text-outline mt-1 block">Nodal Bank recipient</span>
+              <span className="text-[10px] text-slate-400 mt-1 block">Recipient Bank Nodal Officer</span>
             </div>
 
             {/* Officer Name */}
             <div>
-              <label className="text-on-surface font-semibold text-[11px] block mb-1">
+              <label className="text-slate-700 font-bold text-[11px] block mb-1">
                 INVESTIGATING OFFICER
               </label>
               <input
                 type="text"
                 value={officerName}
                 onChange={(e) => setOfficerName(e.target.value)}
-                placeholder="Officer Name / Cyber Cell..."
-                className="w-full p-2.5 bg-surface-container-low border border-outline-variant/40 rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Officer Name / Cyber Crime Cell"
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
               />
-              <span className="text-[10px] text-outline mt-1 block">Signatory officer</span>
+              <span className="text-[10px] text-slate-400 mt-1 block">Signatory credentials</span>
             </div>
 
             {/* Case Reference */}
             <div>
-              <label className="text-on-surface font-semibold text-[11px] block mb-1">
+              <label className="text-slate-700 font-bold text-[11px] block mb-1">
                 CASE REFERENCE / FIR
               </label>
               <input
                 type="text"
                 value={caseReference}
                 onChange={(e) => setCaseReference(e.target.value)}
-                placeholder="e.g. CR-2026-0881"
-                className="w-full p-2.5 bg-surface-container-low border border-outline-variant/40 rounded-lg text-on-surface focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="e.g. CR-2024-001"
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
               />
-              <span className="text-[10px] text-outline mt-1 block">Police docket reference</span>
+              <span className="text-[10px] text-slate-400 mt-1 block">Police docket identifier</span>
             </div>
           </div>
 
@@ -295,9 +316,9 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
             <button
               type="submit"
               disabled={freezeLoading || !freezeTarget.trim()}
-              className="px-6 py-3 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-bold shadow-md transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+              className="px-6 py-2.5 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all disabled:opacity-50 flex items-center gap-2 cursor-pointer"
             >
-              <ShieldAlert size={16} />
+              <ShieldAlert size={15} />
               <span>{freezeLoading ? 'Synthesizing PDF Notice...' : 'Generate Bank Freeze Notice (Sec. 102 PDF)'}</span>
             </button>
           </div>
@@ -305,18 +326,20 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
 
         {/* Latest Generated Callout Banner */}
         {latestGenerated && (
-          <div className="mt-4 p-5 bg-gradient-to-r from-rose-50/70 via-slate-50 to-blue-50/50 border border-rose-300 rounded-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="mt-4 p-5 bg-gradient-to-r from-rose-50/80 via-slate-50 to-amber-50/50 border border-rose-300 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xs">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <CheckCircle2 size={16} className="text-emerald-700" />
-                <span className="text-xs font-bold text-on-surface uppercase font-data-mono">
+                <span className="text-xs font-bold text-slate-900 uppercase">
                   Official Freeze Notice Synthesized: {latestGenerated.doc.document_id}
                 </span>
               </div>
-              <p className="text-xs text-on-surface-variant font-data-mono">
-                Target: <strong className="text-rose-700">{latestGenerated.target}</strong>
+              <p className="text-xs text-slate-600">
+                Target: <strong className="text-rose-700 font-mono">{latestGenerated.target}</strong>
                 {latestGenerated.bank ? ` • Bank: ${latestGenerated.bank}` : ''} • SHA-256:{' '}
-                <span className="text-[11px] text-outline">{latestGenerated.doc.integrity_hash?.slice(0, 16)}...</span>
+                <span className="text-[11px] font-mono text-slate-500">
+                  {latestGenerated.doc.integrity_hash?.slice(0, 16)}...
+                </span>
               </p>
             </div>
             <div className="flex items-center gap-2 w-full md:w-auto">
@@ -324,7 +347,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 href={api.getDocumentDownloadUrl(latestGenerated.doc.document_id)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 md:flex-initial px-5 py-2.5 bg-rose-700 hover:bg-rose-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-colors"
+                className="flex-1 md:flex-initial px-5 py-2.5 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
               >
                 <Download size={14} />
                 <span>Download Notice PDF</span>
@@ -333,7 +356,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                 <button
                   type="button"
                   onClick={() => onInvestigateAccount(latestGenerated.target)}
-                  className="px-4 py-2.5 bg-surface-container-low hover:bg-surface-container border border-outline-variant/40 text-on-surface rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  className="px-4 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-800 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
                 >
                   <span>Deep-Dive ID</span>
                   <ArrowUpRight size={14} />
@@ -346,46 +369,46 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
 
       {/* Secondary Section: Case Diary Generator (Collapsed by default) */}
       {showCaseDiarySection && (
-        <form onSubmit={handleGenerateDiary} className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/30 shadow-sm space-y-4">
+        <form onSubmit={handleGenerateDiary} className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
           <div className="flex items-center gap-2">
-            <FileText size={18} className="text-secondary" />
-            <h2 className="font-headline-md text-base font-bold text-on-surface">
+            <FileText size={18} className="text-amber-600" />
+            <h2 className="text-base font-bold text-slate-900">
               Investigation Case Diary (Rule 172 CrPC)
             </h2>
           </div>
-          <p className="text-xs text-on-surface-variant leading-relaxed">
+          <p className="text-xs text-slate-500 leading-relaxed">
             Synthesizes a deterministic chronological money-movement ledger linking all hops, evidence record references, and legal statements.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-data-mono">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
             <div>
-              <label className="text-outline uppercase text-[10px] block mb-1">VICTIM ACCOUNT ID *</label>
+              <label className="text-slate-500 uppercase text-[10px] font-bold block mb-1">VICTIM ACCOUNT ID *</label>
               <input
                 type="text"
                 value={diaryVictim}
                 onChange={(e) => setDiaryVictim(e.target.value)}
                 placeholder="Enter victim account..."
-                className="w-full p-2.5 bg-surface-container-low border border-outline-variant/50 rounded-lg text-on-surface focus:outline-none"
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-amber-500/30"
               />
             </div>
             <div>
-              <label className="text-outline uppercase text-[10px] block mb-1">OFFICER NAME</label>
+              <label className="text-slate-500 uppercase text-[10px] font-bold block mb-1">OFFICER NAME</label>
               <input
                 type="text"
                 value={officerName}
                 onChange={(e) => setOfficerName(e.target.value)}
                 placeholder="Officer Name..."
-                className="w-full p-2.5 bg-surface-container-low border border-outline-variant/50 rounded-lg text-on-surface focus:outline-none"
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
               />
             </div>
             <div>
-              <label className="text-outline uppercase text-[10px] block mb-1">CASE REFERENCE</label>
+              <label className="text-slate-500 uppercase text-[10px] font-bold block mb-1">CASE REFERENCE</label>
               <input
                 type="text"
                 value={caseReference}
                 onChange={(e) => setCaseReference(e.target.value)}
                 placeholder="FIR / Case Reference..."
-                className="w-full p-2.5 bg-surface-container-low border border-outline-variant/50 rounded-lg text-on-surface focus:outline-none"
+                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
               />
             </div>
           </div>
@@ -394,7 +417,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
             <button
               type="submit"
               disabled={diaryLoading || !diaryVictim.trim()}
-              className="px-5 py-2.5 bg-primary-container hover:bg-black text-on-primary rounded-lg text-xs font-semibold shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2"
+              className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors disabled:opacity-50 flex items-center gap-2 cursor-pointer"
             >
               <FileText size={14} />
               <span>{diaryLoading ? 'Generating Case Diary...' : 'Compile Case Diary (Rule 172 PDF)'}</span>
@@ -404,23 +427,25 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
       )}
 
       {/* Generated Documents Register & Download Vault */}
-      <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 shadow-sm overflow-hidden">
-        <div className="px-6 py-4 bg-surface-container-low border-b border-outline-variant/30 flex items-center justify-between">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px] text-secondary">inventory_2</span>
-            <h3 className="font-headline-md text-sm font-bold text-on-surface">
-              Generated Bank Freeze Notices & Statutory Records ({generatedDocs.length})
+            <h3 className="text-sm font-bold text-slate-900">
+              Generated Bank Freeze Notices &amp; Statutory Records
             </h3>
+            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold font-mono">
+              {generatedDocs.length}
+            </span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-[11px] font-data-mono text-outline">
+            <span className="text-[11px] text-slate-400 font-medium">
               Persistent Court Docket Vault
             </span>
             {generatedDocs.length > 0 && (
               <button
                 type="button"
                 onClick={handleClearDocuments}
-                className="text-[11px] font-data-mono text-rose-600 hover:text-rose-800 flex items-center gap-1 cursor-pointer"
+                className="text-[11px] text-rose-600 hover:text-rose-800 flex items-center gap-1 cursor-pointer font-medium"
               >
                 <Trash2 size={12} />
                 <span>Clear Vault</span>
@@ -430,46 +455,62 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
         </div>
 
         {generatedDocs.length === 0 ? (
-          <div className="p-12 text-center text-xs text-on-surface-variant font-data-mono">
-            No bank freeze notices generated yet. Enter an Account ID above to synthesize an official Section 102 CrPC PDF notice.
+          <div className="p-14 text-center text-xs text-slate-500">
+            No bank freeze notices generated yet. Enter a Target Account ID above to synthesize an official Section 102 CrPC PDF notice.
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-data-mono">
-              <thead className="bg-slate-50 border-b border-outline-variant/20 text-outline uppercase font-semibold text-[11px]">
+            <table className="w-full text-left text-xs font-medium">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[10px] tracking-wider font-semibold">
                 <tr>
-                  <th className="py-3 px-4">DOCUMENT ID</th>
-                  <th className="py-3 px-4">TYPE</th>
-                  <th className="py-3 px-4">TARGET ACCOUNT</th>
-                  <th className="py-3 px-4">BANK / RECIPIENT</th>
-                  <th className="py-3 px-4">GENERATED AT</th>
-                  <th className="py-3 px-4">SHA-256 HASH</th>
-                  <th className="py-3 px-4 text-center">ACTION</th>
+                  <th className="py-3 px-6">Document ID</th>
+                  <th className="py-3 px-4">Type</th>
+                  <th className="py-3 px-4">Target Account</th>
+                  <th className="py-3 px-4">Bank / Recipient</th>
+                  <th className="py-3 px-4">Generated At</th>
+                  <th className="py-3 px-4">SHA-256 Hash</th>
+                  <th className="py-3 px-6 text-center">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-outline-variant/15 text-on-surface">
+              <tbody className="divide-y divide-slate-100 text-slate-700">
                 {generatedDocs.map((item, idx) => (
                   <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4 font-bold text-primary">{item.doc.document_id}</td>
+                    <td className="py-3 px-6">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono font-bold text-slate-900">{item.doc.document_id}</span>
+                        <button
+                          type="button"
+                          onClick={() => copyDocId(item.doc.document_id)}
+                          className="text-slate-400 hover:text-slate-600 p-0.5"
+                          title="Copy Document ID"
+                        >
+                          {copiedDocId === item.doc.document_id ? (
+                            <Check size={11} className="text-emerald-600" />
+                          ) : (
+                            <Copy size={11} />
+                          )}
+                        </button>
+                      </div>
+                    </td>
                     <td className="py-3 px-4 font-semibold">
                       {item.type === 'freeze_requisition' ? (
-                        <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-[10px] font-bold">
+                        <span className="px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold">
                           Sec. 102 Freeze Notice
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-bold">
+                        <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold">
                           Rule 172 Case Diary
                         </span>
                       )}
                     </td>
-                    <td className="py-3 px-4 font-bold text-on-surface">
+                    <td className="py-3 px-4 font-bold text-slate-900 font-mono">
                       <div className="flex items-center gap-1.5">
                         <span>{item.target}</span>
                         {onInvestigateAccount && (
                           <button
                             type="button"
                             onClick={() => onInvestigateAccount(item.target)}
-                            className="text-primary hover:text-primary-container p-0.5"
+                            className="text-amber-700 hover:text-amber-900 p-0.5"
                             title="Deep-dive this account"
                           >
                             <ArrowUpRight size={13} />
@@ -477,17 +518,17 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
                         )}
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-outline">{item.bank || 'National Bank Nodal'}</td>
-                    <td className="py-3 px-4 text-outline">{item.timestamp || 'Just now'}</td>
-                    <td className="py-3 px-4 text-on-surface-variant font-mono">
+                    <td className="py-3 px-4 text-slate-600 font-medium">{item.bank || 'National Bank Nodal'}</td>
+                    <td className="py-3 px-4 text-slate-500 font-mono text-[11px]">{item.timestamp || 'Just now'}</td>
+                    <td className="py-3 px-4 text-slate-500 font-mono text-[11px]">
                       {item.doc.integrity_hash ? `${item.doc.integrity_hash.slice(0, 16)}...` : 'Verified'}
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-3 px-6 text-center">
                       <a
                         href={api.getDocumentDownloadUrl(item.doc.document_id)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-700 hover:bg-rose-800 text-white rounded text-[11px] font-bold shadow-sm transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-700 hover:bg-rose-800 text-white rounded-lg text-xs font-bold shadow-xs transition-colors"
                       >
                         <Download size={12} />
                         <span>PDF Notice</span>

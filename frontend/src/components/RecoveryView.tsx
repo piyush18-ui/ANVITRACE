@@ -123,7 +123,7 @@ export const RecoveryView: React.FC<RecoveryViewProps> = ({ onInvestigateAccount
                 </tr>
               ) : (
                 filtered.map((cand) => (
-                  <tr key={cand.account_id} className="hover:bg-blue-50/40 transition-colors">
+                  <tr key={cand.account_id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-2.5 px-4 font-bold text-indigo-700">{cand.account_id}</td>
                     <td className="py-2.5 px-3 text-right">₹{cand.total_incoming_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                     <td className="py-2.5 px-3 text-right text-on-surface-variant">

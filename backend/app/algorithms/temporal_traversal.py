@@ -86,40 +86,60 @@ class TemporalTraversalEngine:
 
         queue: deque[PathState] = deque()
         traversal_edges: list[dict[str, Any]] = []
+        visited_edges_by_hop: set[tuple[int, str]] = set()
 
-        # Hop 1 seed: from victim account to first beneficiary
-        hop1_edge = {
-            "hop": 1,
-            "record_id": victim_tx["record_id"],
-            "Transaction_ID": victim_tx["Transaction_ID"],
-            "from_account": victim_tx["Sender_Account"],
-            "to_account": victim_tx["Receiver_Account"],
-            "amount": float(victim_tx["Amount"]),
-            "timestamp": start_ts,
-            "payment_mode": victim_tx["Payment_Mode"],
-            "is_cycle": False,
-            "parent_record_id": None,
-            "provenance": {"source_row": victim_tx.get("source_row"), "dataset_id": self.dataset_id},
-        }
-        traversal_edges.append(hop1_edge)
+        # Hop 1 seed: from victim account to beneficiary account(s)
+        if initial_tx_id or victim_tx["Sender_Account"] != victim_account:
+            seed_txs = [victim_tx] if victim_tx["Sender_Account"] == victim_account else []
+        else:
+            outgoing_candidates = self._fetch_outgoing_candidates(victim_account)
+            seed_txs = [
+                c for c in outgoing_candidates
+                if c["timestamp"] >= start_ts and (not cutoff_ts or c["timestamp"] <= cutoff_ts)
+                and (not min_amount or c["amount"] >= min_amount)
+            ]
+            if not seed_txs and victim_tx["Sender_Account"] == victim_account:
+                seed_txs = [victim_tx]
 
-        # Enqueue first destination for hop 2 expansion if depth allows
-        if effective_max_hops >= 2:
-            queue.append(
-                PathState(
-                    current_account=victim_tx["Receiver_Account"],
-                    hop=2,
-                    parent_record_id=victim_tx["record_id"],
-                    incoming_timestamp=start_ts,
-                    path_accounts=(victim_tx["Sender_Account"], victim_tx["Receiver_Account"]),
-                    path_record_ids=(victim_tx["record_id"],),
+        for tx in seed_txs:
+            to_acc = tx.get("to_account") or tx.get("Receiver_Account")
+            amt = float(tx.get("amount", tx.get("Amount", 0.0)))
+            ts = tx.get("timestamp")
+            rec_id = tx.get("record_id")
+            tx_id = tx.get("Transaction_ID")
+            pm = tx.get("payment_mode", tx.get("Payment_Mode", "TRANSFER"))
+
+            hop1_edge = {
+                "hop": 1,
+                "record_id": rec_id,
+                "Transaction_ID": tx_id,
+                "from_account": victim_account,
+                "to_account": to_acc,
+                "amount": amt,
+                "timestamp": ts,
+                "payment_mode": pm,
+                "is_cycle": False,
+                "parent_record_id": None,
+                "provenance": {"source_row": tx.get("source_row"), "dataset_id": self.dataset_id},
+            }
+            traversal_edges.append(hop1_edge)
+            visited_edges_by_hop.add((1, rec_id))
+
+            # Enqueue destination for hop 2 expansion if depth allows
+            if effective_max_hops >= 2:
+                queue.append(
+                    PathState(
+                        current_account=to_acc,
+                        hop=2,
+                        parent_record_id=rec_id,
+                        incoming_timestamp=ts,
+                        path_accounts=(victim_account, to_acc),
+                        path_record_ids=(rec_id,),
+                    )
                 )
-            )
 
         # Cache outgoing lookups per account for performance
         outgoing_cache: dict[str, list[dict[str, Any]]] = {}
-        # Track (hop, record_id) to avoid re-adding identical physical edges on convergent paths
-        visited_edges_by_hop: set[tuple[int, str]] = {(1, victim_tx["record_id"])}
 
         # 2. BFS Traversal
         while queue:
@@ -221,6 +241,18 @@ class TemporalTraversalEngine:
             ).fetchone()
 
         if not row:
+            row = self.conn.execute(
+                """
+                SELECT record_id, Transaction_ID, Sender_Account, Receiver_Account,
+                       Amount, Timestamp, Payment_Mode, source_row
+                FROM transactions
+                WHERE Receiver_Account = ? AND dataset_id = ?
+                ORDER BY Timestamp ASC LIMIT 1
+                """,
+                [victim_account, self.dataset_id],
+            ).fetchone()
+
+        if not row:
             return None
 
         ts = row[5] if isinstance(row[5], datetime) else datetime.fromisoformat(str(row[5]))
@@ -234,6 +266,40 @@ class TemporalTraversalEngine:
             "Payment_Mode": row[6],
             "source_row": row[7],
         }
+
+    def get_incoming_transactions(self, account_id: str) -> list[dict[str, Any]]:
+        """Fetch all incoming transactions where funds were transferred to this account."""
+        rows = self.conn.execute(
+            """
+            SELECT record_id, Transaction_ID, Sender_Account, Receiver_Account,
+                   CAST(Amount AS DOUBLE), Timestamp, Payment_Mode, source_row
+            FROM transactions
+            WHERE Receiver_Account = ? AND dataset_id = ?
+            ORDER BY Timestamp ASC
+            """,
+            [account_id, self.dataset_id],
+        ).fetchall()
+        inflows = []
+        for r in rows:
+            ts = r[5] if isinstance(r[5], datetime) else datetime.fromisoformat(str(r[5]))
+            inflows.append(
+                {
+                    "record_id": r[0],
+                    "Transaction_ID": r[1],
+                    "from_account": r[2],
+                    "to_account": r[3],
+                    "amount": float(r[4]),
+                    "timestamp": ts,
+                    "payment_mode": r[6],
+                    "source_row": r[7],
+                    "direction": "upstream",
+                    "hop": 1,
+                    "is_cycle": False,
+                    "parent_record_id": None,
+                    "provenance": {"source_row": r[7], "dataset_id": self.dataset_id},
+                }
+            )
+        return inflows
 
     def _fetch_outgoing_candidates(self, account_id: str) -> list[dict[str, Any]]:
         """Fetch outgoing candidate edges using indexed Parquet scan or DuckDB fallback."""

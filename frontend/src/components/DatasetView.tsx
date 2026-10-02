@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import type { DatasetStatus, DatasetStats } from '../api';
-import { Database, UploadCloud, CheckCircle2, AlertCircle, RefreshCw, FileSpreadsheet } from 'lucide-react';
+import { Database, UploadCloud, CheckCircle2, AlertCircle, RefreshCw, FileSpreadsheet, Loader2 } from 'lucide-react';
 
 export const DatasetView: React.FC = () => {
   const [status, setStatus] = useState<DatasetStatus | null>(null);
   const [stats, setStats] = useState<DatasetStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ percent: number; stage: string; loaded?: number; total?: number } | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,9 +48,17 @@ export const DatasetView: React.FC = () => {
     setUploading(true);
     setUploadMessage(null);
     setError(null);
+    setUploadProgress({
+      percent: 5,
+      stage: 'Preparing evidence CSV payload...',
+      loaded: 0,
+      total: selectedFile.size,
+    });
 
     try {
-      const resp = await api.uploadDataset(selectedFile);
+      const resp = await api.uploadDataset(selectedFile, (p) => {
+        setUploadProgress(p);
+      });
       setUploadMessage(`Dataset ingested successfully: ${resp.message} (Dataset ID: ${resp.dataset_id})`);
       setSelectedFile(null);
       await fetchData();
@@ -57,6 +66,7 @@ export const DatasetView: React.FC = () => {
       setError(`Ingestion failed: ${err.message}`);
     } finally {
       setUploading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -74,7 +84,7 @@ export const DatasetView: React.FC = () => {
             Dataset Ingestion &amp; Health
           </h1>
           <p className="text-[12px] text-on-surface-variant font-data-mono mt-0.5">
-            Streaming CSV ledger ingestion, normalization, validation, DuckDB indexing, and SHA-256 provenance sealing.
+            Streaming CSV ledger ingestion, normalization, validation, and SHA-256 provenance sealing.
           </p>
         </div>
 
@@ -116,7 +126,7 @@ export const DatasetView: React.FC = () => {
             </span>
           </div>
           <p className="text-xs text-on-surface-variant leading-relaxed">
-            Select a raw CSV banking transaction export. The backend validates timestamps, accounts, IFSC codes, amounts, and writes to an indexed DuckDB store.
+            Select a raw CSV banking transaction export. The system validates timestamps, accounts, IFSC codes, amounts, and writes to an indexed store.
           </p>
 
           {/* File Selector Dropzone */}
@@ -134,9 +144,41 @@ export const DatasetView: React.FC = () => {
               {selectedFile ? selectedFile.name : 'Select or Drop CSV File Here'}
             </span>
             <span className="text-[11px] text-on-surface-variant mt-0.5 font-data-mono">
-              {selectedFile ? `${(selectedFile.size / 1024).toFixed(1)} KB` : 'Maximum payload streamed chunk-by-chunk'}
+              {selectedFile ? `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB` : 'Maximum payload streamed chunk-by-chunk'}
             </span>
           </div>
+
+          {/* Active Upload Progress Bar */}
+          {uploading && (
+            <div className="p-3.5 bg-slate-900 text-white rounded-xl shadow-sm space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold flex items-center gap-2">
+                  <Loader2 size={13} className="animate-spin text-amber-400" />
+                  <span>Ingesting Evidence Dataset</span>
+                </span>
+                <span className="font-mono font-bold text-amber-400">{uploadProgress?.percent || 5}%</span>
+              </div>
+
+              {/* Progress track */}
+              <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden p-0.5 ring-1 ring-slate-700/60">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-400 via-amber-300 to-emerald-400 rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${Math.max(4, Math.min(100, uploadProgress?.percent || 5))}%` }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-slate-400">
+                <span className="truncate max-w-[280px] font-medium text-slate-300">
+                  {uploadProgress?.stage || 'Processing transactions...'}
+                </span>
+                {uploadProgress?.total && (
+                  <span className="font-mono shrink-0 ml-2 text-slate-400">
+                    {((uploadProgress.loaded || 0) / (1024 * 1024)).toFixed(1)} / {((uploadProgress.total || 0) / (1024 * 1024)).toFixed(1)} MB
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between pt-2">
             <span className="text-[11px] font-data-mono text-outline">
@@ -145,12 +187,12 @@ export const DatasetView: React.FC = () => {
             <button
               onClick={handleUpload}
               disabled={uploading || !selectedFile}
-              className="px-5 py-2 bg-primary-container hover:bg-black text-on-primary rounded-lg text-xs font-semibold shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2"
+              className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               {uploading ? (
                 <>
-                  <RefreshCw size={14} className="animate-spin" />
-                  Ingesting &amp; Indexing...
+                  <Loader2 size={14} className="animate-spin text-amber-400" />
+                  Ingesting ({uploadProgress?.percent || 0}%)...
                 </>
               ) : (
                 <>
@@ -216,14 +258,10 @@ export const DatasetView: React.FC = () => {
                 </div>
               )}
 
-              <div className="pt-2 border-t border-outline-variant/20 text-[11px] text-on-surface-variant flex items-center justify-between">
-                <span>Database Engine:</span>
-                <span className="font-semibold text-on-surface">DuckDB Persistent</span>
-              </div>
             </div>
           ) : (
             <div className="p-8 text-center text-xs text-on-surface-variant">
-              No dataset currently loaded in local DuckDB storage. Upload a transaction CSV to begin.
+              No dataset currently loaded. Upload a transaction CSV to begin.
             </div>
           )}
         </div>
@@ -240,7 +278,7 @@ export const DatasetView: React.FC = () => {
             { step: '2. Parsing', desc: 'Polars columnar reader' },
             { step: '3. Normalize', desc: 'UTC & uppercase clean' },
             { step: '4. Validate', desc: 'Check rules & IFSC' },
-            { step: '5. Indexing', desc: 'DuckDB graph indexes' },
+            { step: '5. Indexing', desc: 'Graph indexes' },
             { step: '6. Detection', desc: 'L1/L2/L3 heuristics' },
             { step: '7. Ready', desc: 'Sealed & queryable' },
           ].map((item, idx) => (

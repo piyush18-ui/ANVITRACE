@@ -43,7 +43,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-surface font-body-md text-on-surface antialiased overflow-hidden">
+    <div className="flex h-screen bg-slate-50 text-slate-900 antialiased overflow-hidden selection:bg-amber-100 selection:text-amber-900">
       {/* Sidebar Navigation matching user requested 4 core stages */}
       <Sidebar
         activeTab={activeTab}
@@ -52,7 +52,7 @@ export const App: React.FC = () => {
       />
 
       {/* Main Content Pane */}
-      <div className="flex-1 ml-72 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 ml-72 flex flex-col h-screen overflow-hidden bg-slate-50">
         {/* Sticky Header */}
         <Header
           caseReference={datasetId ? `DATASET: ${datasetId.slice(0, 10)}` : 'AIR-GAP FORENSICS'}
@@ -62,7 +62,7 @@ export const App: React.FC = () => {
         />
 
         {/* Scrollable View Area */}
-        <main className="flex-1 overflow-y-auto px-8 py-6">
+        <main className="flex-1 overflow-y-auto px-8 py-6 bg-slate-50">
           {/* 1. Dashboard: Fraudulent accounts board & system overview */}
           {activeTab === 'overview' && (
             <OverviewDashboard
