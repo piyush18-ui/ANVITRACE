@@ -12,16 +12,19 @@ import {
   Gavel,
   Check,
   Copy,
+  ArrowLeft,
 } from 'lucide-react';
 
 interface DocumentsViewProps {
   initialAccountId?: string;
   onInvestigateAccount?: (accountId: string) => void;
+  onGoBack?: () => void;
 }
 
 export const DocumentsView: React.FC<DocumentsViewProps> = ({
   initialAccountId,
   onInvestigateAccount,
+  onGoBack,
 }) => {
   // Freeze requisition state
   const [freezeTarget, setFreezeTarget] = useState(initialAccountId || '');
@@ -189,7 +192,18 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({
       <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-2">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
+              {onGoBack && (
+                <button
+                  type="button"
+                  onClick={onGoBack}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold border border-slate-200 shadow-2xs transition-colors cursor-pointer group mr-1"
+                  title="Go back to previous screen (Alt + Left Arrow)"
+                >
+                  <ArrowLeft size={13} className="text-slate-600 group-hover:-translate-x-0.5 transition-transform" />
+                  <span>Back</span>
+                </button>
+              )}
               <span className="text-[11px] font-semibold text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded border border-rose-200 uppercase tracking-wider">
                 LEGAL FORENSIC PIPELINE • SEC. 102 CrPC
               </span>

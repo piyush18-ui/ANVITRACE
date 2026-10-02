@@ -21,16 +21,19 @@ import {
   Download,
   Copy,
   Check,
+  ArrowLeft,
 } from 'lucide-react';
 
 interface InvestigateWorkspaceProps {
   initialAccountId?: string;
   onNavigateToNotice?: (accountId: string) => void;
+  onGoBack?: () => void;
 }
 
 export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
   initialAccountId = '',
   onNavigateToNotice,
+  onGoBack,
 }) => {
   const [searchAccount, setSearchAccount] = useState(initialAccountId);
   const [currentAccount, setCurrentAccount] = useState(initialAccountId);
@@ -429,7 +432,18 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
       <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
+              {onGoBack && (
+                <button
+                  type="button"
+                  onClick={onGoBack}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold border border-slate-200 shadow-2xs transition-colors cursor-pointer group mr-1"
+                  title="Go back to previous screen (Alt + Left Arrow)"
+                >
+                  <ArrowLeft size={13} className="text-slate-600 group-hover:-translate-x-0.5 transition-transform" />
+                  <span>Back</span>
+                </button>
+              )}
               <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 uppercase tracking-wider">
                 DEEP-DIVE INTELLIGENCE
               </span>
@@ -655,24 +669,31 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
           </div>
 
           {/* Account Net Flow & Retention */}
-          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-              Net Flow Retained
-            </span>
-            <div className="text-2xl font-bold tabular-nums font-['Plus_Jakarta_Sans',sans-serif] text-slate-900 mt-2 truncate">
-              <span className="text-lg font-semibold text-slate-400 mr-1">₹</span>
-              {accountProfile ? formatINR(accountProfile.observed_net_flow) : '0.00'}
-            </div>
-            <div className="flex items-center gap-1.5 mt-2 text-xs text-slate-500 font-medium">
-              <span>
-                Retention:{' '}
-                {accountProfile && accountProfile.in_amount > 0
-                  ? ((accountProfile.observed_net_flow / accountProfile.in_amount) * 100).toFixed(1)
-                  : '0.0'}
-                %
-              </span>
-            </div>
-          </div>
+          {(() => {
+            const netFlowRetained = accountProfile
+              ? (accountProfile.observed_net_flow ?? accountProfile.net_flow ?? (accountProfile.in_amount - accountProfile.out_amount))
+              : 0;
+            return (
+              <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                  Net Flow Retained
+                </span>
+                <div className="text-2xl font-bold tabular-nums font-['Plus_Jakarta_Sans',sans-serif] text-slate-900 mt-2 truncate">
+                  <span className="text-lg font-semibold text-slate-400 mr-1">₹</span>
+                  {formatINR(netFlowRetained)}
+                </div>
+                <div className="flex items-center gap-1.5 mt-2 text-xs text-slate-500 font-medium">
+                  <span>
+                    Retention:{' '}
+                    {accountProfile && accountProfile.in_amount > 0
+                      ? ((netFlowRetained / accountProfile.in_amount) * 100).toFixed(1)
+                      : '0.0'}
+                    %
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 

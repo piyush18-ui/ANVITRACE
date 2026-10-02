@@ -14,6 +14,7 @@ import {
   X,
   FileSpreadsheet,
   Loader2,
+  ArrowLeft,
 } from 'lucide-react';
 
 interface CaseManagementViewProps {
@@ -21,6 +22,7 @@ interface CaseManagementViewProps {
   onNavigateToDataset: () => void;
   onNavigateToDocuments: () => void;
   onNavigateToNotice?: (accountId: string) => void;
+  onGoBack?: () => void;
 }
 
 export interface CaseDocket {
@@ -50,6 +52,7 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
   onNavigateToDataset,
   onNavigateToDocuments,
   onNavigateToNotice,
+  onGoBack,
 }) => {
   const [cases, setCases] = useState<CaseDocket[]>(() => {
     try {
@@ -255,7 +258,18 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
       <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
+              {onGoBack && (
+                <button
+                  type="button"
+                  onClick={onGoBack}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold border border-slate-200 shadow-2xs transition-colors cursor-pointer group mr-1"
+                  title="Go back to previous screen (Alt + Left Arrow)"
+                >
+                  <ArrowLeft size={13} className="text-slate-600 group-hover:-translate-x-0.5 transition-transform" />
+                  <span>Back</span>
+                </button>
+              )}
               <span className="text-[11px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 uppercase tracking-wider">
                 AIR-GAP EVIDENCE REGISTRY
               </span>

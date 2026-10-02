@@ -39,6 +39,7 @@ export interface AccountProfile {
   in_amount: number;
   out_amount: number;
   observed_net_flow: number;
+  net_flow?: number;
   distinct_senders: number;
   distinct_receivers: number;
   first_tx_timestamp?: string;

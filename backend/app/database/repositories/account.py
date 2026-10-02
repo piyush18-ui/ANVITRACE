@@ -76,6 +76,7 @@ class AccountRepository:
             in_amount=in_amt,
             out_amount=out_amt,
             net_flow=net_flow,
+            observed_net_flow=net_flow,
             distinct_senders=result[6],
             distinct_receivers=result[7],
             first_tx_timestamp=result[8],

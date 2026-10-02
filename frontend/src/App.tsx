@@ -9,11 +9,17 @@ import { CaseManagementView } from './components/CaseManagementView';
 import { DocumentsView } from './components/DocumentsView';
 import { DatasetView } from './components/DatasetView';
 
+interface NavHistoryItem {
+  tab: ActiveTab;
+  accountId: string;
+}
+
 export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [backendOnline, setBackendOnline] = useState<boolean>(false);
   const [datasetId, setDatasetId] = useState<string | undefined>(undefined);
+  const [historyStack, setHistoryStack] = useState<NavHistoryItem[]>([]);
 
   // Check backend health periodically
   useEffect(() => {
@@ -32,32 +38,74 @@ export const App: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const navigateTo = (tab: ActiveTab, accountId?: string) => {
+    setHistoryStack((prev) => [
+      ...prev,
+      { tab: activeTab, accountId: selectedAccountId },
+    ]);
+    if (accountId !== undefined) {
+      setSelectedAccountId(accountId);
+    }
+    setActiveTab(tab);
+  };
+
   const handleSelectAccount = (acc: string) => {
-    setSelectedAccountId(acc);
-    setActiveTab('investigate');
+    navigateTo('investigate', acc);
   };
 
   const handleNavigateToNotice = (acc: string) => {
-    setSelectedAccountId(acc);
-    setActiveTab('documents');
+    navigateTo('documents', acc);
   };
+
+  const handleSidebarTabChange = (newTab: ActiveTab) => {
+    if (newTab !== activeTab) {
+      navigateTo(newTab, selectedAccountId);
+    }
+  };
+
+  const handleGoBack = () => {
+    if (historyStack.length > 0) {
+      const prev = historyStack[historyStack.length - 1];
+      setHistoryStack((stack) => stack.slice(0, -1));
+      setActiveTab(prev.tab);
+      setSelectedAccountId(prev.accountId || '');
+    } else {
+      setActiveTab('overview');
+    }
+  };
+
+  // Keyboard shortcut listener: Alt + ArrowLeft
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handleGoBack();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [historyStack, activeTab, selectedAccountId]);
+
+  const canGoBack = historyStack.length > 0 || activeTab !== 'overview';
 
   return (
     <div className="flex h-screen bg-slate-50 text-slate-900 antialiased overflow-hidden selection:bg-amber-100 selection:text-amber-900">
       {/* Sidebar Navigation matching user requested 4 core stages */}
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={handleSidebarTabChange}
         backendOnline={backendOnline}
       />
 
       {/* Main Content Pane */}
       <div className="flex-1 ml-72 flex flex-col h-screen overflow-hidden bg-slate-50">
-        {/* Sticky Header */}
+        {/* Sticky Header with Universal Back Button */}
         <Header
           caseReference={datasetId ? `DATASET: ${datasetId.slice(0, 10)}` : 'AIR-GAP FORENSICS'}
           datasetId={datasetId}
           backendOnline={backendOnline}
+          canGoBack={canGoBack}
+          onGoBack={handleGoBack}
           onSearchTarget={handleSelectAccount}
         />
 
@@ -68,8 +116,8 @@ export const App: React.FC = () => {
             <OverviewDashboard
               onSelectAccount={handleSelectAccount}
               onNavigateToNotice={handleNavigateToNotice}
-              onNavigateToCases={() => setActiveTab('cases')}
-              onNavigateToDataset={() => setActiveTab('dataset-status')}
+              onNavigateToCases={() => navigateTo('cases')}
+              onNavigateToDataset={() => navigateTo('dataset-status')}
             />
           )}
 
@@ -78,8 +126,9 @@ export const App: React.FC = () => {
             <CaseManagementView
               onInvestigateAccount={handleSelectAccount}
               onNavigateToNotice={handleNavigateToNotice}
-              onNavigateToDataset={() => setActiveTab('dataset-status')}
-              onNavigateToDocuments={() => setActiveTab('documents')}
+              onNavigateToDataset={() => navigateTo('dataset-status')}
+              onNavigateToDocuments={() => navigateTo('documents')}
+              onGoBack={handleGoBack}
             />
           )}
 
@@ -88,6 +137,7 @@ export const App: React.FC = () => {
             <InvestigateWorkspace
               initialAccountId={selectedAccountId}
               onNavigateToNotice={handleNavigateToNotice}
+              onGoBack={handleGoBack}
             />
           )}
 
@@ -96,6 +146,7 @@ export const App: React.FC = () => {
             <DocumentsView
               initialAccountId={selectedAccountId}
               onInvestigateAccount={handleSelectAccount}
+              onGoBack={handleGoBack}
             />
           )}
 
