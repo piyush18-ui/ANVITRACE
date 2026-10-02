@@ -215,15 +215,25 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
 
               <div className="pt-2 border-t border-outline-variant/20 flex items-center justify-between gap-2">
                 <button
-                  onClick={() => onInvestigateAccount(docket.targetAccount)}
+                  onClick={() => {
+                    try {
+                      localStorage.setItem('anvitrace_active_case', JSON.stringify(docket));
+                    } catch {}
+                    onInvestigateAccount(docket.targetAccount);
+                  }}
                   className="flex-1 py-1.5 bg-primary-container hover:bg-black text-on-primary rounded text-xs font-bold transition-colors shadow-xs text-center"
                 >
                   Investigate →
                 </button>
                 <button
-                  onClick={() => onNavigateToDocuments()}
+                  onClick={() => {
+                    try {
+                      localStorage.setItem('anvitrace_active_case', JSON.stringify(docket));
+                    } catch {}
+                    onNavigateToDocuments();
+                  }}
                   className="py-1.5 px-3 bg-surface-container hover:bg-surface-container-high text-on-surface rounded text-xs font-semibold transition-colors border border-outline-variant/40"
-                  title="Generate Documents"
+                  title="Generate Documents for Case"
                 >
                   <FileText size={14} />
                 </button>

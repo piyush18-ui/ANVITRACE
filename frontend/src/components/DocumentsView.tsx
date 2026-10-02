@@ -17,12 +17,53 @@ export const DocumentsView: React.FC = () => {
 
   const [error, setError] = useState<string | null>(null);
 
-  // Real generated documents list
+  // Real generated documents list with localStorage persistence across refreshes
   const [generatedDocs, setGeneratedDocs] = useState<Array<{
     type: 'case_diary' | 'freeze_requisition';
     target: string;
     doc: DocumentResponse;
-  }>>([]);
+    timestamp?: string;
+  }>>(() => {
+    try {
+      const saved = localStorage.getItem('anvitrace_generated_documents');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Pre-fill from active case if available
+  React.useEffect(() => {
+    try {
+      const activeCase = localStorage.getItem('anvitrace_active_case');
+      if (activeCase) {
+        const c = JSON.parse(activeCase);
+        if (c.id && !caseReference) setCaseReference(c.id);
+        if (c.targetAccount && !diaryVictim) setDiaryVictim(c.targetAccount);
+        if (c.targetAccount && !freezeTarget) setFreezeTarget(c.targetAccount);
+      }
+    } catch {}
+  }, []);
+
+  const saveGeneratedDocs = (docs: Array<{
+    type: 'case_diary' | 'freeze_requisition';
+    target: string;
+    doc: DocumentResponse;
+    timestamp?: string;
+  }>) => {
+    setGeneratedDocs(docs);
+    try {
+      localStorage.setItem('anvitrace_generated_documents', JSON.stringify(docs));
+    } catch (e) {
+      console.warn('Failed to save documents to localStorage', e);
+    }
+  };
+
+  const handleClearDocuments = () => {
+    if (confirm('Clear all stored generated documents?')) {
+      saveGeneratedDocs([]);
+    }
+  };
 
   const handleGenerateDiary = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,10 +81,16 @@ export const DocumentsView: React.FC = () => {
         caseReference: caseReference.trim() || undefined,
       });
 
-      setGeneratedDocs((prev) => [
-        { type: 'case_diary', target: diaryVictim.trim(), doc: resp },
-        ...prev,
-      ]);
+      const updated = [
+        {
+          type: 'case_diary' as const,
+          target: diaryVictim.trim(),
+          doc: resp,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+        ...generatedDocs,
+      ];
+      saveGeneratedDocs(updated);
     } catch (err: any) {
       setError(`Case diary generation failed: ${err.message}`);
     } finally {
@@ -68,10 +115,16 @@ export const DocumentsView: React.FC = () => {
         caseReference: caseReference.trim() || undefined,
       });
 
-      setGeneratedDocs((prev) => [
-        { type: 'freeze_requisition', target: freezeTarget.trim(), doc: resp },
-        ...prev,
-      ]);
+      const updated = [
+        {
+          type: 'freeze_requisition' as const,
+          target: freezeTarget.trim(),
+          doc: resp,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+        ...generatedDocs,
+      ];
+      saveGeneratedDocs(updated);
     } catch (err: any) {
       setError(`Freeze requisition draft failed: ${err.message}`);
     } finally {
@@ -232,14 +285,25 @@ export const DocumentsView: React.FC = () => {
               Generated Statutory Documents ({generatedDocs.length})
             </h3>
           </div>
-          <span className="text-[11px] font-data-mono text-outline">
-            Stored in local backend archive
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-[11px] font-data-mono text-outline">
+              Persistent Local Archive
+            </span>
+            {generatedDocs.length > 0 && (
+              <button
+                type="button"
+                onClick={handleClearDocuments}
+                className="text-[11px] font-data-mono text-rose-600 hover:text-rose-800 underline hover:no-underline"
+              >
+                Clear History
+              </button>
+            )}
+          </div>
         </div>
 
         {generatedDocs.length === 0 ? (
           <div className="p-8 text-center text-xs text-on-surface-variant font-data-mono">
-            No statutory documents generated yet in this session. Fill out either form above to compile official drafts.
+            No statutory documents generated yet. Fill out either form above to compile official drafts.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -249,6 +313,7 @@ export const DocumentsView: React.FC = () => {
                   <th className="py-2.5 px-4">DOCUMENT ID</th>
                   <th className="py-2.5 px-4">DOCUMENT TYPE</th>
                   <th className="py-2.5 px-4">TARGET ACCOUNT</th>
+                  <th className="py-2.5 px-4">GENERATED AT</th>
                   <th className="py-2.5 px-4">SHA-256 HASH</th>
                   <th className="py-2.5 px-4">LOCAL PATH</th>
                   <th className="py-2.5 px-4 text-center">STATUS</th>
@@ -262,6 +327,7 @@ export const DocumentsView: React.FC = () => {
                       {item.type === 'case_diary' ? 'Case Diary (Rule 172)' : 'Freeze Requisition (Sec. 102)'}
                     </td>
                     <td className="py-2.5 px-4 font-medium">{item.target}</td>
+                    <td className="py-2.5 px-4 text-outline">{item.timestamp || 'Just now'}</td>
                     <td className="py-2.5 px-4 text-on-surface-variant">
                       {item.doc.integrity_hash ? `${item.doc.integrity_hash.slice(0, 16)}...` : 'Verified'}
                     </td>
