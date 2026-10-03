@@ -21,10 +21,13 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from app.config.settings import settings
 from app.database.repositories.dataset import DatasetRepository
+from app.services.case_diary_formatter import build_case_diary_23_context
 from app.schemas.documents import (
     CaseDiaryResponse,
     FreezeRequisitionResponse,

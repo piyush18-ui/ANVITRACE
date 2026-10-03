@@ -41,6 +41,8 @@ class CaseDiaryResponse(BaseModel):
         True,
         description="Whether all factual fields in the document were validated against backend evidence",
     )
+    diary_text: str | None = Field(None, description="Full 23-section forensic case diary report text")
+    txt_file_path: str | None = Field(None, description="Local path to .txt formatted diary")
     disclaimer: str = Field(
         default=(
             "This document contains only validated factual fields from backend evidence. "

@@ -286,7 +286,9 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
             <button
               type="button"
               onClick={() => onNavigateToDataset()}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200 transition-colors shadow-xs"
+              className="hidden items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200 transition-colors shadow-xs"
+              style={{ display: 'none' }}
+              aria-hidden="true"
             >
               <Database size={14} className="text-amber-600" />
               <span>Dataset Setup</span>

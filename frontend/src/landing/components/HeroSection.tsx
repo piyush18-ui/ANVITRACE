@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ArrowRight, Play, Database, Network, ShieldCheck, Building2, Landmark, Shield, Cpu } from 'lucide-react';
 import { Globe } from '../ui/globe';
+import { VideoModal } from './VideoModal';
 
 interface HeroSectionProps {
   onLaunchInvestigation: () => void;
 }
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ onLaunchInvestigation }) => {
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   const proofMetrics = [
     {
       value: '2M+',
@@ -29,10 +31,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onLaunchInvestigation 
   ];
 
   const handleSeeHowItWorks = () => {
-    const el = document.querySelector('#how-it-works');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-    }
+    setIsVideoModalOpen(true);
   };
 
   return (
@@ -174,6 +173,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onLaunchInvestigation 
         </div>
 
       </div>
+
+      {/* Demo Video Modal */}
+      <VideoModal
+        isOpen={isVideoModalOpen}
+        onClose={() => setIsVideoModalOpen(false)}
+        videoSrc="/demo-video.mp4"
+      />
     </section>
   );
 };
