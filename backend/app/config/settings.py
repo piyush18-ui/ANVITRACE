@@ -4,8 +4,19 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Resolve project root (backend/)
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+# Determine execution environment (Development vs PyInstaller Frozen .exe)
+import sys
+
+_IS_FROZEN = getattr(sys, "frozen", False)
+
+if _IS_FROZEN:
+    # 1. Project Root: The directory containing the .exe (for writable data, duckdb, logs)
+    _PROJECT_ROOT = Path(sys.executable).resolve().parent
+    # 2. Bundle Root: PyInstaller temporary extraction directory (for embedded code and static assets)
+    _BUNDLE_ROOT = Path(getattr(sys, "_MEIPASS", _PROJECT_ROOT)).resolve()
+else:
+    _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+    _BUNDLE_ROOT = _PROJECT_ROOT
 
 
 class Settings(BaseSettings):
@@ -19,8 +30,8 @@ class Settings(BaseSettings):
 
     # --- Application ---
     APP_NAME: str = "ANVITRACE"
-    APP_ENV: str = "development"
-    DEBUG: bool = True
+    APP_ENV: str = "production" if _IS_FROZEN else "development"
+    DEBUG: bool = not _IS_FROZEN
     LOG_LEVEL: str = "INFO"
 
     # --- Server ---
@@ -42,8 +53,26 @@ class Settings(BaseSettings):
         return _PROJECT_ROOT
 
     @property
+    def bundle_root(self) -> Path:
+        return _BUNDLE_ROOT
+
+    @property
     def duckdb_abs_path(self) -> Path:
         return _PROJECT_ROOT / self.DUCKDB_PATH
+
+    @property
+    def frontend_dist_path(self) -> Path:
+        # Check inside PyInstaller bundle first
+        bundled = _BUNDLE_ROOT / "frontend" / "dist"
+        if bundled.exists() and (bundled / "index.html").exists():
+            return bundled
+        # Check workspace relative path
+        workspace_dist = _PROJECT_ROOT.parent / "frontend" / "dist"
+        if workspace_dist.exists() and (workspace_dist / "index.html").exists():
+            return workspace_dist
+        # Check local relative path
+        local_dist = _PROJECT_ROOT / "frontend" / "dist"
+        return local_dist
 
 
 settings = Settings()

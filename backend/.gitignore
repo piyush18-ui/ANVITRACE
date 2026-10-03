@@ -82,3 +82,9 @@ logs/
 
 # --- Benchmarks output ---
 benchmarks/results/
+
+# --- Offline Distribution & Executables ---
+ANVITRACE-v1.0-Offline/
+*.exe
+*.spec.bak
+

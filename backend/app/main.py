@@ -67,3 +67,24 @@ app.include_router(syndicate_router, prefix="/api")
 app.include_router(evidence_router, prefix="/api")
 app.include_router(documents_router, prefix="/api")
 
+# Serve offline compiled frontend
+frontend_dist = settings.frontend_dist_path
+if frontend_dist.exists() and (frontend_dist / "index.html").exists():
+    from fastapi.responses import FileResponse, JSONResponse
+    from fastapi.staticfiles import StaticFiles
+
+    logger.info(f"Mounting offline frontend static assets from: {frontend_dist}")
+    app.mount("/", StaticFiles(directory=str(frontend_dist), html=True), name="frontend")
+
+    @app.exception_handler(404)
+    async def spa_404_handler(request, exc):
+        # Allow API 404s to return standard JSON 404
+        if request.url.path.startswith("/api") or request.url.path in ("/docs", "/redoc", "/openapi.json"):
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+        # Otherwise serve index.html for SPA client-side routing
+        index_file = frontend_dist / "index.html"
+        if index_file.exists():
+            return FileResponse(index_file)
+        return JSONResponse(status_code=404, content={"detail": "Not Found"})
+
+
