@@ -1,134 +1,70 @@
-# ⚡ DoomStack
+# ANVITRACE
 
-### Building Ideas Into Impact
+ANVITRACE is an offline forensic workstation for investigating financial
+transactions. It provides transaction ingestion, mule-account detection,
+fund-flow tracing, case management, and forensic report generation.
 
-<p align="center">
-  <strong>A VoidHacks 8.0 Project</strong>
-</p>
+The application combines a React/Vite frontend with a FastAPI backend and a
+DuckDB-based analysis engine. The Windows desktop build packages these
+components into a standalone executable.
 
-<p align="center">
-  Turning innovative ideas into practical, technology-driven solutions.
-</p>
+## Run the Windows executable
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Event-VoidHacks%208.0-blueviolet?style=for-the-badge" alt="VoidHacks 8.0" />
-  <img src="https://img.shields.io/badge/Status-In%20Development-orange?style=for-the-badge" alt="In Development" />
-</p>
+If you have the `ANVITRACE-v1.0-Offline` distribution folder, double-click
+`ANVITRACE.exe`. The application starts its local backend and opens the
+workstation in Microsoft Edge app mode or your default browser at
+`http://127.0.0.1:8000`.
 
----
+The executable and runtime data are not stored in this source repository.
+GitHub limits individual Git files to 100 MB, and the generated executable is
+larger than that. Build the distribution from source as described below, or
+download a separately published release when one is available.
 
-## 🚀 About
+## Build the Windows distribution
 
-**DoomStack** is our project for **VoidHacks 8.0**, where we aim to transform an idea into a practical and meaningful technology solution.
+Requirements:
 
-This repository serves as the central place for our source code, development workflow, implementation, and project documentation.
+- Windows
+- Python 3.12 or newer
+- Node.js and npm
 
-Our focus is on building a solution with a clear purpose, a thoughtful user experience, and a maintainable technical foundation.
+From the repository root, install and build the frontend:
 
-## 🎯 Our Goals
-
-* Solve a real-world problem through technology.
-* Build a functional and intuitive user experience.
-* Develop a modular, maintainable codebase.
-* Experiment, iterate, and improve through rapid prototyping.
-* Create a foundation that can evolve beyond the hackathon.
-
-## ✨ Key Highlights
-
-* **Purpose-Driven Development:** Focused on addressing the project's core problem.
-* **User-Centered Design:** Prioritizing clarity, usability, and accessibility.
-* **Scalable Architecture:** Organizing components for easier maintenance and extension.
-* **Collaborative Development:** Building and improving the solution as a team.
-
-*Specific features will be documented here as they are implemented.*
-
-## 🛠️ Technology Stack
-
-The final stack will reflect the technologies used in the implementation.
-
-| Layer      | Technology                      |
-| ---------- | ------------------------------- |
-| Frontend   | To be documented                |
-| Backend    | To be documented                |
-| Database   | To be documented                |
-| AI / APIs  | To be documented, if applicable |
-| Deployment | To be documented                |
-
-## 🏗️ Project Structure
-
-The repository structure will evolve as development progresses.
-
-```text
-DoomStack/
-├── README.md
-├── frontend/       # User interface, if applicable
-├── backend/        # Server-side logic, if applicable
-├── docs/           # Project documentation
-└── ...
+```powershell
+cd frontend
+npm install
+npm run build
+cd ..
 ```
 
-*Update this structure to match the actual repository.*
+Create the backend environment at the path expected by the packaging script,
+install the backend dependencies and PyInstaller, then build the distribution:
 
-## ⚙️ Getting Started
+```powershell
+python -m venv backend\.venv
+backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
+backend\.venv\Scripts\python.exe -m pip install pyinstaller
+backend\.venv\Scripts\python.exe build_offline_package.py
+```
 
-### Prerequisites
+The script creates `ANVITRACE-v1.0-Offline` in the repository root. Open
+`ANVITRACE.exe` in that folder to start the application. Generated executables,
+databases, datasets, and local environment files are intentionally excluded
+from Git.
 
-Install the tools and runtimes required by the project's chosen technology stack.
+## Project layout
 
-### Installation
+```text
+backend/                  FastAPI application and analysis engine
+frontend/                 React and Vite user interface
+anvitrace.spec            PyInstaller executable specification
+build_offline_package.py  Windows offline distribution builder
+launcher.py               Root launcher entry point
+```
 
-1. Clone the repository:
+## Development
 
-   ```bash
-   git clone https://github.com/VoidHacks-8-0/DoomStack-Voidhacks8.0.git
-   ```
-
-2. Open the project directory:
-
-   ```bash
-   cd DoomStack-Voidhacks8.0
-   ```
-
-3. Install the dependencies according to the package manager and framework used by the project.
-
-4. Configure any required environment variables using the provided example configuration, if available.
-
-5. Start the application using the development command documented for the project.
-
-> **Note:** Exact installation and run commands will be added once the project setup is finalized.
-
-## 🗺️ Development Roadmap
-
-* [x] Create the project repository
-* [x] Establish project documentation
-* [ ] Finalize core architecture
-* [ ] Implement the primary features
-* [ ] Test and refine the application
-* [ ] Prepare the final hackathon submission
-
-## 👥 Team
-
-**Team:** DoomStack
-**Event:** VoidHacks 8.0
-
-Add team member names, roles, and profile links here.
-
-## 🤝 Contributing
-
-Contributions from team members are welcome. Follow the project's agreed coding conventions, test changes before submitting them, and keep documentation up to date.
-
-## 🔐 Security
-
-Never commit API keys, passwords, access tokens, or private credentials. Use environment variables and keep local environment files out of version control.
-
-## 📄 License
-
-The project license will be specified once finalized.
-
----
-
-<p align="center">
-  <strong>Built with curiosity, collaboration, and code.</strong>
-  <br />
-  <sub>DoomStack · VoidHacks 8.0</sub>
-</p>
+Install frontend dependencies with `npm install` in `frontend/`. Install the
+backend dependencies from `backend/requirements.txt` using Python 3.12 or
+newer. Keep local credentials and environment files out of version control;
+configure local settings in an untracked `.env` file as needed.
