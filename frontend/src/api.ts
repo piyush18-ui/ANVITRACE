@@ -550,6 +550,67 @@ export const api = {
     return res.json();
   },
 
+  // 11b. Physical Evidence & Judge Demo Verify-by-Upload
+  listEvidenceFiles: async (datasetId?: string): Promise<EvidenceDetail[]> => {
+    const url = datasetId
+      ? `${API_BASE}/evidence?dataset_id=${encodeURIComponent(datasetId)}`
+      : `${API_BASE}/evidence`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Failed to retrieve evidence files');
+    return res.json();
+  },
+
+  getEvidenceDetails: async (evidenceId: string): Promise<EvidenceDetail> => {
+    const res = await fetch(`${API_BASE}/evidence/${encodeURIComponent(evidenceId)}`);
+    if (!res.ok) throw new Error('Evidence not found');
+    return res.json();
+  },
+
+  verifyStoredEvidence: async (evidenceId: string): Promise<EvidenceVerifyResult> => {
+    const res = await fetch(`${API_BASE}/evidence/${encodeURIComponent(evidenceId)}/verify`, {
+      method: 'POST',
+    });
+    if (!res.ok) throw new Error('Evidence re-verification failed');
+    return res.json();
+  },
+
+  verifyEvidenceUpload: async (evidenceId: string, file: File): Promise<EvidenceVerifyResult> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${API_BASE}/evidence/${encodeURIComponent(evidenceId)}/verify-upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) throw new Error('Candidate file verification failed');
+    return res.json();
+  },
+
+  getEvidenceHistory: async (evidenceId: string): Promise<VerificationHistoryItem[]> => {
+    const res = await fetch(`${API_BASE}/evidence/${encodeURIComponent(evidenceId)}/history`);
+    if (!res.ok) throw new Error('Failed to retrieve verification history');
+    return res.json();
+  },
+
+  verifyAuditChain: async (): Promise<AuditChainStatus> => {
+    const res = await fetch(`${API_BASE}/audit/verify`);
+    if (!res.ok) throw new Error('Audit verification failed');
+    return res.json();
+  },
+
+  getAuditEvents: async (
+    entityId?: string,
+    action?: string,
+    limit = 50,
+    offset = 0
+  ): Promise<{ total: number; events: AuditEventItem[] }> => {
+    const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+    if (entityId) params.append('entity_id', entityId);
+    if (action) params.append('action', action);
+    const res = await fetch(`${API_BASE}/audit/events?${params.toString()}`);
+    if (!res.ok) throw new Error('Failed to retrieve audit events');
+    return res.json();
+  },
+
   // 12. Case AI: Bilingual Summaries & Isolated Chat
   registerCase: async (docket: any): Promise<any> => {
     const res = await fetch(`${API_BASE}/cases`, {
@@ -684,3 +745,58 @@ export interface CaseChatResponse {
   suggested_followups: string[];
   disclaimer: string;
 }
+
+export interface EvidenceVerifyResult {
+  evidence_id: string;
+  filename?: string;
+  status: 'VERIFIED' | 'MISMATCH' | 'MISSING';
+  recorded_sha256?: string;
+  recomputed_sha256?: string;
+  recorded_size?: number;
+  current_size?: number;
+  candidate_size?: number;
+  note: string;
+}
+
+export interface VerificationHistoryItem {
+  event_id: string;
+  checked_at: string;
+  recomputed_sha256: string;
+  status: 'VERIFIED' | 'MISMATCH' | 'MISSING';
+  note?: string;
+}
+
+export interface EvidenceDetail {
+  evidence_id: string;
+  dataset_id?: string;
+  filename: string;
+  storage_path: string;
+  size_bytes: number;
+  algorithm: string;
+  sha256: string;
+  recorded_at: string;
+  last_verification_status: string;
+}
+
+export interface AuditChainStatus {
+  ok: boolean;
+  status: 'INTACT' | 'BROKEN' | 'EMPTY';
+  total_events: number;
+  last_hash?: string;
+  broken_at_seq?: number;
+  reason?: string;
+  message: string;
+}
+
+export interface AuditEventItem {
+  seq: number;
+  ts: string;
+  actor: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  details: any;
+  prev_hash: string;
+  entry_hash: string;
+}
+

@@ -162,6 +162,47 @@ CREATE TABLE IF NOT EXISTS account_ml_anomalies (
     computed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (account_id, dataset_id)
 );
+
+-- 12. Evidence Files (Append-only physical evidence registry)
+CREATE TABLE IF NOT EXISTS evidence_files (
+    evidence_id VARCHAR PRIMARY KEY,
+    dataset_id VARCHAR,
+    filename VARCHAR NOT NULL,
+    storage_path VARCHAR NOT NULL,
+    size_bytes BIGINT NOT NULL,
+    algorithm VARCHAR NOT NULL DEFAULT 'SHA-256',
+    sha256 VARCHAR NOT NULL,
+    recorded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_evidence_files_sha ON evidence_files (sha256);
+CREATE INDEX IF NOT EXISTS idx_evidence_files_fn ON evidence_files (filename);
+
+-- 13. Verification Events (Append-only integrity re-verification logs)
+CREATE TABLE IF NOT EXISTS verification_events (
+    event_id VARCHAR PRIMARY KEY,
+    evidence_id VARCHAR NOT NULL,
+    checked_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    recomputed_sha256 VARCHAR NOT NULL,
+    status VARCHAR NOT NULL,
+    note VARCHAR
+);
+CREATE INDEX IF NOT EXISTS idx_verif_events_eid ON verification_events (evidence_id);
+
+-- 14. Tamper-Evident Cryptographic Audit Log (HMAC-SHA256 Chained, Append-only)
+CREATE SEQUENCE IF NOT EXISTS seq_audit_log_seq START 1;
+CREATE TABLE IF NOT EXISTS audit_log (
+    seq BIGINT PRIMARY KEY DEFAULT nextval('seq_audit_log_seq'),
+    ts TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    actor VARCHAR NOT NULL,
+    action VARCHAR NOT NULL,
+    entity_type VARCHAR NOT NULL,
+    entity_id VARCHAR NOT NULL,
+    details VARCHAR NOT NULL,
+    prev_hash VARCHAR NOT NULL,
+    entry_hash VARCHAR NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log (action);
+CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log (entity_id);
 """
 
 

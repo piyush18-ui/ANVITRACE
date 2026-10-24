@@ -13,6 +13,9 @@ class DatasetUploadResponse(BaseModel):
     filename: str = Field(..., description="Name of the uploaded file")
     status: str = Field(..., description="Current status (PROCESSING, COMPLETED, FAILED)")
     message: str = Field(..., description="Status message")
+    evidence_id: str | None = Field(None, description="Registered evidence identifier")
+    warning: dict | None = Field(None, description="Same-filename or content warning")
+    manifest_warning: dict | None = Field(None, description="Trusted manifest discrepancy warning")
 
 
 class DatasetStatusResponse(BaseModel):

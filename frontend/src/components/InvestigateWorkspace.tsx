@@ -14,6 +14,7 @@ import type {
   IntegrityReport,
 } from '../api';
 import { MoneyFlowGraph } from './MoneyFlowGraph';
+import { EvidenceIntegrityPanel } from './EvidenceIntegrityPanel';
 import {
   Search,
   FileText,
@@ -1842,9 +1843,12 @@ export const InvestigateWorkspace: React.FC<InvestigateWorkspaceProps> = ({
             </div>
           )}
 
-          {/* Tab 4: SHA-256 Check Integrity */}
+          {/* Tab 4: SHA-256 Check Integrity & Judge Demo */}
           {activeTab === 'integrity' && (
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-6">
+              {/* Evidence Integrity Layer & Judge-Demo Verify Panel */}
+              <EvidenceIntegrityPanel datasetId={traceData.dataset_id} />
+
               <div className="p-5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">

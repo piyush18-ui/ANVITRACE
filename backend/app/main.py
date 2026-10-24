@@ -7,9 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config.settings import settings
 from app.database.duckdb import close, connect
+from app.evidence.audit import AuditService, get_audit_key
 from app.routers.cases import cases_router
 from app.routers.dataset import router as dataset_router
-from app.routers.evidence import documents_router, evidence_router
+from app.routers.evidence import audit_router, documents_router, evidence_router
 from app.routers.investigations import account_router, investigation_router
 from app.routers.recovery import router as recovery_router
 from app.routers.syndicate import router as syndicate_router
@@ -18,10 +19,38 @@ from app.utils.logging import logger
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    """Application lifespan: startup and shutdown hooks."""
+    """Application lifespan: startup validation and shutdown hooks."""
     logger.info("Starting up ANVITRACE backend platform...")
-    connect()
+
+    # 1. Fail-fast if AUDIT_KEY is missing
+    try:
+        get_audit_key()
+        logger.info("Cryptographic AUDIT_KEY verified.")
+    except RuntimeError as e:
+        logger.critical(f"FATAL STARTUP BLOCKED: {e}")
+        raise
+
+    # 2. Initialize DuckDB & apply schema
+    conn = connect()
     logger.info("DuckDB connected and canonical schema applied.")
+
+    # 3. Verify cryptographic audit chain integrity on startup
+    try:
+        audit_svc = AuditService(conn)
+        status_info = audit_svc.verify_audit_chain()
+        if status_info["ok"]:
+            logger.info(
+                f"Tamper-evident audit chain: {status_info['status']} "
+                f"({status_info.get('total_events', 0)} events). Last digest: {status_info.get('last_hash', 'N/A')[:16]}..."
+            )
+        else:
+            logger.error(
+                f"AUDIT CHAIN INTEGRITY BROKEN at sequence #{status_info.get('broken_at_seq')}: "
+                f"{status_info.get('reason')}"
+            )
+    except Exception as e:
+        logger.warning(f"Initial audit chain check encountered error: {e}")
+
     yield
     logger.info("Shutting down ANVITRACE backend platform...")
     close()
@@ -67,6 +96,7 @@ app.include_router(recovery_router, prefix="/api")
 app.include_router(syndicate_router, prefix="/api")
 app.include_router(evidence_router, prefix="/api")
 app.include_router(documents_router, prefix="/api")
+app.include_router(audit_router, prefix="/api")
 app.include_router(cases_router, prefix="/api")
 
 # Serve offline compiled frontend
@@ -80,13 +110,14 @@ if frontend_dist.exists() and (frontend_dist / "index.html").exists():
 
     @app.exception_handler(404)
     async def spa_404_handler(request, exc):
+        detail = getattr(exc, "detail", "Not Found")
         # Allow API 404s to return standard JSON 404
         if request.url.path.startswith("/api") or request.url.path in ("/docs", "/redoc", "/openapi.json"):
-            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+            return JSONResponse(status_code=404, content={"detail": detail})
         # Otherwise serve index.html for SPA client-side routing
         index_file = frontend_dist / "index.html"
         if index_file.exists():
             return FileResponse(index_file)
-        return JSONResponse(status_code=404, content={"detail": "Not Found"})
+        return JSONResponse(status_code=404, content={"detail": detail})
 
 

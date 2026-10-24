@@ -18,7 +18,10 @@ import {
   ArrowLeft,
   Sparkles,
   Zap,
+  ShieldCheck,
+  FileWarning,
 } from 'lucide-react';
+import { EvidenceIntegrityPanel } from './EvidenceIntegrityPanel';
 
 interface CaseManagementViewProps {
   onInvestigateAccount: (accountId: string) => void;
@@ -100,6 +103,8 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
   const [uploadProgress, setUploadProgress] = useState<UploadProgressInfo | null>(null);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<any | null>(null);
+  const [activeVerifyDocket, setActiveVerifyDocket] = useState<CaseDocket | null>(null);
 
   // Primary Investigation Candidates
   const [primaryCandidates, setPrimaryCandidates] = useState<PrimaryCandidate[]>([]);
@@ -224,6 +229,16 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
         `Successfully ingested ${files.length} evidence file(s) (${filenames}) into Case ${caseId}!`
       );
 
+      if (resp.warning === 'SAME_FILENAME_DIFFERENT_CONTENT' || resp.warning_info?.warning === 'SAME_FILENAME_DIFFERENT_CONTENT') {
+        const warn = resp.warning_info || resp;
+        setDuplicateWarning({
+          existing_evidence_id: warn.existing_evidence_id,
+          message: warn.message || "Same filename, different content. Compare with the registered original?",
+          existing_sha256: warn.existing_sha256,
+          new_sha256: warn.new_sha256,
+        });
+      }
+
       // Refresh candidates after new data ingestion
       api.getPrimaryCandidates(datasetId, 6).then((cands) => {
         if (cands && Array.isArray(cands)) setPrimaryCandidates(cands);
@@ -270,6 +285,16 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
         attachedRows = uploadResp.total_rows || uploadResp.total_records_ingested || 2000000;
         attachedHash = uploadResp.dataset_hash || uploadResp.manifest_sha256;
         setUploadMessage(`Evidence ingested and attached to new case!`);
+
+        if (uploadResp.warning === 'SAME_FILENAME_DIFFERENT_CONTENT' || uploadResp.warning_info?.warning === 'SAME_FILENAME_DIFFERENT_CONTENT') {
+          const warn = uploadResp.warning_info || uploadResp;
+          setDuplicateWarning({
+            existing_evidence_id: warn.existing_evidence_id,
+            message: warn.message || "Same filename, different content. Compare with the registered original?",
+            existing_sha256: warn.existing_sha256,
+            new_sha256: warn.new_sha256,
+          });
+        }
       } catch (err: any) {
         setUploadError(`Failed to ingest evidence CSV: ${err.message}`);
         setUploadingCaseId(null);
@@ -569,6 +594,44 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
         </div>
       )}
 
+      {/* Duplicate Filename Warning Banner (Requirement 5) */}
+      {duplicateWarning && (
+        <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl text-amber-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-200/80 flex items-center justify-center shrink-0 text-amber-800">
+              <FileWarning size={18} />
+            </div>
+            <div>
+              <span className="font-bold text-sm block">
+                Same filename, different content. Compare with the registered original?
+              </span>
+              <p className="text-xs text-amber-800 mt-0.5">
+                The newly uploaded dataset has the same filename as an existing evidence record, but the cryptographic SHA-256 digest differs. Both records have been saved independently.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveVerifyDocket({ id: 'warning', datasetId: undefined } as any);
+              }}
+              className="px-3.5 py-2 bg-amber-800 hover:bg-amber-900 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
+            >
+              <ShieldCheck size={14} className="text-amber-200" />
+              <span>Compare with Registered Original</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDuplicateWarning(null)}
+              className="p-1.5 text-amber-700 hover:text-amber-900 rounded-lg hover:bg-amber-100 transition-colors"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Case Dockets Grid or Empty State */}
       {cases.length === 0 ? (
         <div className="bg-white p-16 rounded-2xl border border-slate-200/80 shadow-xs text-center space-y-4">
@@ -652,9 +715,20 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
                     )}
                   </div>
                   {docket.datasetFilename ? (
-                    <div className="text-xs text-slate-800">
-                      <span className="font-semibold text-slate-900 block truncate">{docket.datasetFilename}</span>
-                      <span className="text-slate-500 text-[11px] block mt-0.5">
+                    <div className="text-xs text-slate-800 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-slate-900 block truncate">{docket.datasetFilename}</span>
+                        <button
+                          type="button"
+                          onClick={() => setActiveVerifyDocket(docket)}
+                          className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-[10px] font-bold transition-colors shadow-2xs flex items-center gap-1 cursor-pointer shrink-0"
+                          title="Verify Evidence File Integrity & Judge Demo"
+                        >
+                          <ShieldCheck size={11} className="text-emerald-400" />
+                          <span>Verify File</span>
+                        </button>
+                      </div>
+                      <span className="text-slate-500 text-[11px] block">
                         {docket.datasetTotalRows ? `${docket.datasetTotalRows.toLocaleString('en-IN')} records` : 'Dataset active'} • ID: {docket.datasetId?.slice(0, 10)}...
                       </span>
                     </div>
@@ -923,6 +997,16 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Evidence Integrity & Verification Modal (Judge Demo) */}
+      {activeVerifyDocket && (
+        <EvidenceIntegrityPanel
+          datasetId={activeVerifyDocket.datasetId}
+          warningBanner={duplicateWarning}
+          isModal={true}
+          onClose={() => setActiveVerifyDocket(null)}
+        />
       )}
     </div>
   );

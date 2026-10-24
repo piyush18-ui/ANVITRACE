@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     # --- Database ---
     DUCKDB_PATH: str = "data/anvitrace.duckdb"
 
+    # --- Security & Audit ---
+    AUDIT_KEY: str | None = None
+    TRUSTED_MANIFEST_PATH: str = "data/trusted_manifest.json"
+
     # --- Data Directories ---
     DATA_RAW_DIR: str = "data/raw"
     DATA_PROCESSED_DIR: str = "data/processed"

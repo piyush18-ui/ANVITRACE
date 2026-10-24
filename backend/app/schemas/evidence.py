@@ -91,3 +91,75 @@ class SnapshotResponse(BaseModel):
             "max_hops, time_window, and parameters, this investigation will reproduce the same factual result."
         ),
     )
+
+
+class EvidenceVerifyResponse(BaseModel):
+    """Result of re-verifying stored evidence file against recorded digest."""
+
+    evidence_id: str
+    filename: str | None = None
+    status: str = Field(..., description="VERIFIED, MISMATCH, or MISSING")
+    recorded_sha256: str | None = None
+    recomputed_sha256: str | None = None
+    recorded_size: int | None = None
+    current_size: int | None = None
+    note: str
+
+
+class EvidenceUploadVerifyResponse(BaseModel):
+    """Result of judge-demo verify-by-upload against recorded digest."""
+
+    evidence_id: str
+    filename: str | None = None
+    status: str = Field(..., description="VERIFIED or MISMATCH")
+    recorded_sha256: str
+    recomputed_sha256: str
+    recorded_size: int
+    candidate_size: int
+    note: str
+
+
+class VerificationEventItem(BaseModel):
+    """Single chronological re-verification log entry."""
+
+    event_id: str
+    checked_at: str
+    recomputed_sha256: str
+    status: str
+    note: str | None = None
+
+
+class EvidenceDetailResponse(BaseModel):
+    """Full metadata for a registered evidence file."""
+
+    evidence_id: str
+    dataset_id: str | None = None
+    filename: str
+    storage_path: str
+    size_bytes: int
+    algorithm: str
+    sha256: str
+    recorded_at: str
+    last_verification_status: str
+
+
+class AuditVerifyResponse(BaseModel):
+    """Cryptographic audit chain verification result."""
+
+    ok: bool
+    status: str
+    total_events: int
+    last_hash: str | None = None
+    broken_at_seq: int | None = None
+    reason: str | None = None
+    message: str
+
+
+class AuditEventsResponse(BaseModel):
+    """Paginated audit events response."""
+
+    total: int
+    limit: int
+    offset: int
+    events: list[dict[str, Any]]
+

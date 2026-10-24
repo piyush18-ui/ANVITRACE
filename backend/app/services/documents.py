@@ -27,6 +27,7 @@ from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, 
 
 from app.config.settings import settings
 from app.database.repositories.dataset import DatasetRepository
+from app.evidence.audit import AuditService
 from app.services.case_diary_formatter import build_case_diary_23_context
 from app.schemas.documents import (
     CaseDiaryResponse,
@@ -68,6 +69,7 @@ class DocumentService:
         self.conn = conn
         self.dataset_repo = DatasetRepository(conn)
         self.evidence_service = EvidenceSnapshotService(conn)
+        self.audit_service = AuditService(conn)
         self._exports_dir = Path(settings.project_root) / settings.DATA_EXPORTS_DIR
         self._exports_dir.mkdir(parents=True, exist_ok=True)
 
@@ -120,6 +122,28 @@ class DocumentService:
             investigation_id=inv_id,
             victim_account=victim_account,
             integrity_hash=integrity_hash,
+        )
+
+        self.audit_service.append_event(
+            action="DOCUMENT_GENERATED",
+            entity_type="document",
+            entity_id=doc_id,
+            details={
+                "doc_type": "case_diary",
+                "victim_account": victim_account,
+                "dataset_id": dataset_id,
+                "integrity_hash": integrity_hash,
+            },
+        )
+        self.audit_service.append_event(
+            action="EXPORT_CREATED",
+            entity_type="export",
+            entity_id=doc_id,
+            details={
+                "filename": filename,
+                "file_path": str(filepath),
+                "integrity_hash": integrity_hash,
+            },
         )
 
         return CaseDiaryResponse(
@@ -190,6 +214,28 @@ class DocumentService:
             investigation_id=inv_id,
             target_account=target_account_id,
             integrity_hash=integrity_hash,
+        )
+
+        self.audit_service.append_event(
+            action="DOCUMENT_GENERATED",
+            entity_type="document",
+            entity_id=doc_id,
+            details={
+                "doc_type": "freeze_requisition",
+                "target_account_id": target_account_id,
+                "dataset_id": dataset_id,
+                "integrity_hash": integrity_hash,
+            },
+        )
+        self.audit_service.append_event(
+            action="EXPORT_CREATED",
+            entity_type="export",
+            entity_id=doc_id,
+            details={
+                "filename": filename,
+                "file_path": str(filepath),
+                "integrity_hash": integrity_hash,
+            },
         )
 
         return FreezeRequisitionResponse(
@@ -477,8 +523,10 @@ class DocumentService:
         elements.append(Spacer(1, 3 * mm))
 
         # Integrity
+        latest_audit = self.audit_service.get_latest_entry_hash()
         elements.append(Paragraph("INTEGRITY VERIFICATION", heading_style))
         elements.append(Paragraph(f"Result Hash: {data.get('result_hash', 'N/A')}", body_style))
+        elements.append(Paragraph(f"Tamper-Evident Audit Chain Hash: {latest_audit}", disclaimer_style))
         elements.append(Paragraph(data.get("integrity_disclaimer", ""), disclaimer_style))
         elements.append(Spacer(1, 3 * mm))
 
@@ -591,8 +639,10 @@ class DocumentService:
         elements.append(Spacer(1, 4 * mm))
 
         # Integrity and approval
+        latest_audit = self.audit_service.get_latest_entry_hash()
         elements.append(Paragraph("INTEGRITY AND APPROVAL", heading_style))
         elements.append(Paragraph(f"Result Hash: {data.get('result_hash', 'N/A')}", body_style))
+        elements.append(Paragraph(f"Tamper-Evident Audit Chain Hash: {latest_audit}", disclaimer_style))
         elements.append(Spacer(1, 3 * mm))
 
         elements.append(

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../api';
 import type { DatasetStatus, DatasetStats } from '../api';
-import { Database, UploadCloud, CheckCircle2, AlertCircle, RefreshCw, FileSpreadsheet, Loader2, ArrowLeft } from 'lucide-react';
+import { Database, UploadCloud, CheckCircle2, AlertCircle, RefreshCw, FileSpreadsheet, Loader2, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { EvidenceIntegrityPanel } from './EvidenceIntegrityPanel';
 
 interface DatasetViewProps {
   onGoBack?: () => void;
@@ -16,6 +17,7 @@ export const DatasetView: React.FC<DatasetViewProps> = ({ onGoBack }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showIntegrityModal, setShowIntegrityModal] = useState<boolean>(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -279,6 +281,16 @@ export const DatasetView: React.FC<DatasetViewProps> = ({ onGoBack }) => {
                 </div>
               )}
 
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowIntegrityModal(true)}
+                  className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-colors shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <ShieldCheck size={14} className="text-emerald-400" />
+                  <span>Verify File &amp; Tamper Chain (Judge Demo)</span>
+                </button>
+              </div>
             </div>
           ) : (
             <div className="p-8 text-center text-xs text-on-surface-variant">
@@ -320,6 +332,15 @@ export const DatasetView: React.FC<DatasetViewProps> = ({ onGoBack }) => {
           ))}
         </div>
       </div>
+
+      {/* Evidence Integrity Modal (Judge Demo) */}
+      {showIntegrityModal && (
+        <EvidenceIntegrityPanel
+          datasetId={status?.dataset_id}
+          isModal={true}
+          onClose={() => setShowIntegrityModal(false)}
+        />
+      )}
     </div>
   );
 };

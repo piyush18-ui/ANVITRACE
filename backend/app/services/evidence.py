@@ -17,6 +17,7 @@ import duckdb
 
 from app.config.risk_rules import DEFAULT_RISK_CONFIG
 from app.database.repositories.dataset import DatasetRepository
+from app.evidence.audit import AuditService, canonical
 from app.schemas.evidence import EvidenceItem, InvestigationSnapshot, SnapshotResponse
 from app.services.investigation import InvestigationService
 from app.services.risk_engine import RiskAssessmentService
@@ -26,13 +27,13 @@ APP_VERSION = "1.0.0"
 
 
 def _compute_result_hash(data: dict[str, Any]) -> str:
-    """Compute SHA-256 hash of investigation result for integrity verification.
+    """Compute SHA-256 hash of canonical investigation result for integrity verification.
 
     NOTE: A matching SHA-256 hash is an integrity mechanism.
     It does NOT constitute proof of source authenticity or legal custody.
     """
-    canonical = json.dumps(data, sort_keys=True, default=str)
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    canonical_str = canonical(data)
+    return hashlib.sha256(canonical_str.encode("utf-8")).hexdigest()
 
 
 class EvidenceSnapshotService:
@@ -43,6 +44,7 @@ class EvidenceSnapshotService:
         self.dataset_repo = DatasetRepository(conn)
         self.investigation_service = InvestigationService(conn)
         self.risk_service = RiskAssessmentService(conn)
+        self.audit_service = AuditService(conn)
 
     def create_snapshot(
         self,
@@ -212,6 +214,19 @@ class EvidenceSnapshotService:
             dataset_id=dataset_id,
             result_hash=result_hash,
             evidence_items_count=len(evidence_items),
+        )
+
+        self.audit_service.append_event(
+            action="SNAPSHOT_CREATED",
+            entity_type="investigation_snapshot",
+            entity_id=investigation_id,
+            details={
+                "victim_account": clean_acc,
+                "dataset_id": dataset_id,
+                "dataset_hash": dataset_hash,
+                "result_hash": result_hash,
+                "evidence_items_count": len(evidence_items),
+            },
         )
 
         return SnapshotResponse(snapshot=snapshot)
