@@ -30,7 +30,7 @@ select = [
     "SIM", # flake8-simplify
     "RUF", # ruff-specific rules
 ]
-ignore = ["E501"]
+ignore = ["E501", "B008", "B904", "B905"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
@@ -38,6 +38,7 @@ known-first-party = ["app"]
 # ── Pytest ────────────────────────────────────────
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 asyncio_mode = "auto"
 markers = [
     "unit: Unit tests",

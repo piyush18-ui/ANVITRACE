@@ -2,6 +2,8 @@
 .env
 .env.local
 .env.*
+mcp_config.json
+.agents/mcp_config.json
 
 # Python
 __pycache__/
@@ -73,3 +75,9 @@ desktop.ini
 .ruff_cache/
 .coverage
 htmlcov/
+
+# Offline Distribution & Executables
+ANVITRACE-v1.0-Offline/
+*.exe
+*.spec.bak
+
