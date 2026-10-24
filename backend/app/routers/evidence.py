@@ -88,6 +88,45 @@ async def create_evidence_snapshot(request: SnapshotRequest):
         )
 
 
+@evidence_router.post(
+    "/verify-integrity",
+    summary="Verify evidence file against SHA-256 baseline and detect structured record changes",
+)
+async def verify_evidence_integrity(
+    dataset_id: str | None = None,
+    filename: str | None = None,
+):
+    """Verify evidence file against baseline SHA-256 and generate structured change diffs."""
+    from pathlib import Path
+    from app.services.integrity_check import IntegrityVerificationService
+    conn = get_connection()
+    repo = DatasetRepository(conn)
+
+    target_filename = filename
+    if not target_filename:
+        if dataset_id:
+            ds = repo.get_dataset(dataset_id)
+            if ds:
+                target_filename = ds["filename"]
+        else:
+            latest = repo.get_latest_dataset()
+            if latest:
+                target_filename = latest["filename"]
+                dataset_id = latest["dataset_id"]
+
+    if not target_filename:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No dataset found to verify.",
+        )
+
+    raw_dir = settings.project_root / settings.DATA_RAW_DIR
+    target_path = raw_dir / target_filename
+
+    svc = IntegrityVerificationService(conn)
+    return svc.verify_file_integrity(target_path, dataset_id=dataset_id)
+
+
 @documents_router.post(
     "/case-diary",
     response_model=CaseDiaryResponse,

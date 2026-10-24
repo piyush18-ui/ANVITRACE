@@ -32,12 +32,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navItems = [
     {
-      id: 'overview' as const,
-      label: 'Dashboard',
-      icon: LayoutDashboard,
-      description: 'Fraudulent accounts & telemetry',
-    },
-    {
       id: 'cases' as const,
       label: 'Cases & Evidence',
       icon: FolderArchive,
@@ -45,9 +39,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'investigate' as const,
-      label: 'Account Deep-Dive',
+      label: 'Case Deep-Dive',
       icon: ScanSearch,
-      description: 'Search ID, score & lineage',
+      description: 'Analyzer, graph & ML scores',
     },
     {
       id: 'documents' as const,

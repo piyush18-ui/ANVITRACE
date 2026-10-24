@@ -3,7 +3,6 @@ import { api } from './api';
 import { Sidebar } from './components/Sidebar';
 import type { ActiveTab } from './components/Sidebar';
 import { Header } from './components/Header';
-import { OverviewDashboard } from './components/OverviewDashboard';
 import { InvestigateWorkspace } from './components/InvestigateWorkspace';
 import { CaseManagementView } from './components/CaseManagementView';
 import { DocumentsView } from './components/DocumentsView';
@@ -22,21 +21,21 @@ const getInitialState = (): { isLanding: boolean; tab: ActiveTab; accountId: str
   if (typeof window !== 'undefined' && window.location.hash) {
     const hash = window.location.hash.replace('#', '');
     const [tab, acc] = hash.split('/');
-    if (tab === 'overview' || tab === 'app') {
-      return { isLanding: false, tab: 'overview', accountId: acc || '' };
+    if (tab === 'overview' || tab === 'app' || tab === 'cases') {
+      return { isLanding: false, tab: 'cases', accountId: acc || '' };
     }
-    if (['cases', 'investigate', 'documents', 'dataset-status'].includes(tab)) {
+    if (['investigate', 'documents', 'dataset-status'].includes(tab)) {
       return { isLanding: false, tab: tab as ActiveTab, accountId: acc || '' };
     }
     if (tab === 'landing') {
       return hasOfficer
-        ? { isLanding: false, tab: 'overview', accountId: '' }
-        : { isLanding: true, tab: 'overview', accountId: '' };
+        ? { isLanding: false, tab: 'cases', accountId: '' }
+        : { isLanding: true, tab: 'cases', accountId: '' };
     }
   }
   return hasOfficer
-    ? { isLanding: false, tab: 'overview', accountId: '' }
-    : { isLanding: true, tab: 'overview', accountId: '' };
+    ? { isLanding: false, tab: 'cases', accountId: '' }
+    : { isLanding: true, tab: 'cases', accountId: '' };
 };
 
 export const App: React.FC = () => {
@@ -78,18 +77,19 @@ export const App: React.FC = () => {
           if (isAuth) {
             // When authenticated, NEVER fall back to landing page via URL or back button
             setIsLanding(false);
-            setActiveTab('overview');
+            setActiveTab('cases');
             setSelectedAccountId('');
-            if (window.location.hash !== '#overview') {
-              window.history.replaceState({ isLanding: false, tab: 'overview', accountId: '' }, '', '#overview');
+            if (window.location.hash !== '#cases') {
+              window.history.replaceState({ isLanding: false, tab: 'cases', accountId: '' }, '', '#cases');
             }
           } else {
             setIsLanding(true);
           }
         } else if (tab === 'app' || tab === 'overview') {
           setIsLanding(false);
-          setActiveTab('overview');
+          setActiveTab('cases');
           setSelectedAccountId(acc || '');
+          window.history.replaceState({ isLanding: false, tab: 'cases', accountId: acc || '' }, '', '#cases');
         } else if (['cases', 'investigate', 'documents', 'dataset-status'].includes(tab)) {
           setIsLanding(false);
           setActiveTab(tab as ActiveTab);
@@ -98,9 +98,9 @@ export const App: React.FC = () => {
       } else {
         if (isAuth) {
           setIsLanding(false);
-          setActiveTab('overview');
+          setActiveTab('cases');
           setSelectedAccountId('');
-          window.history.replaceState({ isLanding: false, tab: 'overview', accountId: '' }, '', '#overview');
+          window.history.replaceState({ isLanding: false, tab: 'cases', accountId: '' }, '', '#cases');
         } else {
           setIsLanding(true);
         }
@@ -113,16 +113,16 @@ export const App: React.FC = () => {
         // Prevent browser back from exiting to landing or external browser history
         if (!window.location.hash || window.location.hash === '#' || window.location.hash === '#landing' || (e.state && e.state.isLanding)) {
           setIsLanding(false);
-          setActiveTab('overview');
+          setActiveTab('cases');
           setSelectedAccountId('');
           setHistoryStack([]);
-          window.history.pushState({ isLanding: false, tab: 'overview', accountId: '' }, '', '#overview');
+          window.history.pushState({ isLanding: false, tab: 'cases', accountId: '' }, '', '#cases');
           return;
         }
 
         if (e.state && typeof e.state.isLanding === 'boolean' && !e.state.isLanding) {
           setIsLanding(false);
-          if (e.state.tab) setActiveTab(e.state.tab);
+          if (e.state.tab) setActiveTab(e.state.tab === 'overview' ? 'cases' : e.state.tab);
           if (e.state.accountId !== undefined) setSelectedAccountId(e.state.accountId);
           setHistoryStack((prev) => (prev.length > 0 ? prev.slice(0, -1) : []));
           return;
@@ -185,12 +185,12 @@ export const App: React.FC = () => {
     } catch {}
     setIsAuthOpen(false);
     setIsLanding(false);
-    setActiveTab('overview');
+    setActiveTab('cases');
     setSelectedAccountId('');
     setHistoryStack([]);
     if (typeof window !== 'undefined') {
-      window.history.replaceState({ isLanding: false, tab: 'overview', accountId: '' }, '', '#overview');
-      window.history.pushState({ isLanding: false, tab: 'overview', accountId: '' }, '', '#overview');
+      window.history.replaceState({ isLanding: false, tab: 'cases', accountId: '' }, '', '#cases');
+      window.history.pushState({ isLanding: false, tab: 'cases', accountId: '' }, '', '#cases');
     }
   };
 
@@ -216,7 +216,8 @@ export const App: React.FC = () => {
 
   const navigateTo = (tab: ActiveTab, accountId: string = '', addToHistory: boolean = true) => {
     setIsLanding(false);
-    if (tab === activeTab && accountId === selectedAccountId && !isLanding) return;
+    const resolvedTab = tab === 'overview' ? 'cases' : tab;
+    if (resolvedTab === activeTab && accountId === selectedAccountId && !isLanding) return;
 
     if (addToHistory) {
       setHistoryStack((prev) => [
@@ -224,12 +225,12 @@ export const App: React.FC = () => {
         { tab: activeTab, accountId: selectedAccountId },
       ]);
       if (typeof window !== 'undefined') {
-        const hash = `#${tab}${accountId ? `/${accountId}` : ''}`;
-        window.history.pushState({ isLanding: false, tab, accountId }, '', hash);
+        const hash = `#${resolvedTab}${accountId ? `/${accountId}` : ''}`;
+        window.history.pushState({ isLanding: false, tab: resolvedTab, accountId }, '', hash);
       }
     }
 
-    setActiveTab(tab);
+    setActiveTab(resolvedTab);
     setSelectedAccountId(accountId);
   };
 
@@ -239,22 +240,23 @@ export const App: React.FC = () => {
     if (historyStack.length > 0) {
       const prev = historyStack[historyStack.length - 1];
       setHistoryStack((stack) => stack.slice(0, -1));
-      setActiveTab(prev.tab);
+      const targetTab = prev.tab === 'overview' ? 'cases' : prev.tab;
+      setActiveTab(targetTab);
       setSelectedAccountId(prev.accountId || '');
       if (typeof window !== 'undefined') {
-        const hash = `#${prev.tab}${prev.accountId ? `/${prev.accountId}` : ''}`;
-        window.history.replaceState({ isLanding: false, tab: prev.tab, accountId: prev.accountId }, '', hash);
+        const hash = `#${targetTab}${prev.accountId ? `/${prev.accountId}` : ''}`;
+        window.history.replaceState({ isLanding: false, tab: targetTab, accountId: prev.accountId }, '', hash);
       }
-    } else if (activeTab !== 'overview' || Boolean(selectedAccountId)) {
-      // Revert back till Home Screen (Dashboard / Overview)
-      setActiveTab('overview');
+    } else if (activeTab !== 'cases' || Boolean(selectedAccountId)) {
+      // Revert back till Cases & Evidence screen
+      setActiveTab('cases');
       setSelectedAccountId('');
       setHistoryStack([]);
       if (typeof window !== 'undefined') {
-        window.history.replaceState({ isLanding: false, tab: 'overview', accountId: '' }, '', '#overview');
+        window.history.replaceState({ isLanding: false, tab: 'cases', accountId: '' }, '', '#cases');
       }
     }
-    // If already on overview with no account and empty history, stop!
+    // If already on cases with no account and empty history, stop!
     // Never drop back to landing screen or exit to browser history.
   };
 
@@ -273,7 +275,7 @@ export const App: React.FC = () => {
     navigateTo(tab, tab === 'investigate' ? selectedAccountId : '');
   };
 
-  const canGoBack = !isLanding && (activeTab !== 'overview' || Boolean(selectedAccountId) || historyStack.length > 0);
+  const canGoBack = !isLanding && (activeTab !== 'cases' || Boolean(selectedAccountId) || historyStack.length > 0);
 
   if (isLanding) {
     return (
@@ -315,18 +317,8 @@ export const App: React.FC = () => {
 
         {/* Scrollable View Area */}
         <main className="flex-1 overflow-y-auto px-8 py-6 bg-slate-50">
-          {/* 1. Dashboard: Fraudulent accounts board & system overview */}
-          {activeTab === 'overview' && (
-            <OverviewDashboard
-              onSelectAccount={handleSelectAccount}
-              onNavigateToNotice={handleNavigateToNotice}
-              onNavigateToCases={() => navigateTo('cases')}
-              onNavigateToDataset={() => navigateTo('dataset-status')}
-            />
-          )}
-
-          {/* 2. Create Case & Upload Evidence (persistent across refresh) */}
-          {activeTab === 'cases' && (
+          {/* 1. Cases & Evidence: Register Case & Upload Evidence (Root Authenticated View) */}
+          {(activeTab === 'cases' || activeTab === 'overview') && (
             <CaseManagementView
               onInvestigateAccount={handleSelectAccount}
               onNavigateToNotice={handleNavigateToNotice}

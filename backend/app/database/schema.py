@@ -116,6 +116,52 @@ CREATE TABLE IF NOT EXISTS evidence_items (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     sha256_hash VARCHAR
 );
+
+-- 8. Case Dockets (Server-side case scoping & isolation)
+CREATE TABLE IF NOT EXISTS case_dockets (
+    case_id VARCHAR PRIMARY KEY,
+    title VARCHAR NOT NULL,
+    act VARCHAR NOT NULL,
+    target_account VARCHAR NOT NULL,
+    officer_name VARCHAR,
+    notes VARCHAR,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR NOT NULL DEFAULT 'Active Investigation',
+    dataset_id VARCHAR,
+    dataset_filename VARCHAR,
+    dataset_hash VARCHAR
+);
+
+-- 9. Case Summaries (Bilingual AI-grounded investigative briefs)
+CREATE TABLE IF NOT EXISTS case_summaries (
+    summary_id VARCHAR PRIMARY KEY,
+    case_id VARCHAR NOT NULL,
+    language VARCHAR NOT NULL DEFAULT 'en',
+    summary_json VARCHAR NOT NULL,
+    dataset_id VARCHAR,
+    generated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 10. Case Chat Messages (Strictly scoped case chatbot audit logs)
+CREATE TABLE IF NOT EXISTS case_chat_messages (
+    message_id VARCHAR PRIMARY KEY,
+    case_id VARCHAR NOT NULL,
+    sender VARCHAR NOT NULL,
+    message_text VARCHAR NOT NULL,
+    metadata_json VARCHAR,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 11. Isolation Forest ML Anomaly Results
+CREATE TABLE IF NOT EXISTS account_ml_anomalies (
+    account_id VARCHAR NOT NULL,
+    dataset_id VARCHAR NOT NULL REFERENCES datasets(dataset_id),
+    anomaly_score DOUBLE NOT NULL,
+    is_anomaly BOOLEAN NOT NULL DEFAULT FALSE,
+    feature_contributions_json VARCHAR,
+    computed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (account_id, dataset_id)
+);
 """
 
 
@@ -123,6 +169,6 @@ def apply_schema(conn: duckdb.DuckDBPyConnection) -> None:
     """Execute DDL statements to ensure all canonical tables and indexes exist."""
     conn.execute(SCHEMA_SQL)
     # Schema migration: add provenance columns if table was created previously
-    for col in ("raw_timestamp", "raw_amount", "raw_payment_mode"):
+    for col in ("raw_timestamp", "raw_amount", "raw_payment_mode", "source_filename"):
         with contextlib.suppress(Exception):
             conn.execute(f"ALTER TABLE transactions ADD COLUMN {col} VARCHAR;")

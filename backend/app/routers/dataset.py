@@ -78,6 +78,62 @@ async def upload_dataset(
         )
 
 
+@router.post(
+    "/upload-multi",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Upload and ingest multiple forensic evidence files simultaneously",
+)
+async def upload_multiple_datasets(
+    files: list[UploadFile] = File(..., description="Multiple CSV forensic evidence files"),
+):
+    """Save multiple CSV files, compute hashes, and perform atomic multi-file ingestion."""
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one evidence CSV file is required.",
+        )
+
+    raw_dir = settings.project_root / settings.DATA_RAW_DIR
+    raw_dir.mkdir(parents=True, exist_ok=True)
+
+    saved_paths: list[Path] = []
+    try:
+        for f in files:
+            if not f.filename or not f.filename.endswith(".csv"):
+                continue
+            dest = raw_dir / f.filename
+            with open(dest, "wb") as buffer:
+                shutil.copyfileobj(f.file, buffer, length=1024 * 1024)
+            saved_paths.append(dest)
+
+        if not saved_paths:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No valid .csv files found in upload payload.",
+            )
+
+        import asyncio
+        service = IngestionService(get_connection())
+        result = await asyncio.to_thread(service.ingest_multiple_files, saved_paths)
+        return {
+            "status": "COMPLETED",
+            "dataset_id": result["dataset_id"],
+            "dataset_hash": result["dataset_hash"],
+            "total_files": result["total_files"],
+            "total_rows": result["total_rows"],
+            "valid_rows": result["valid_rows"],
+            "invalid_rows": result["invalid_rows"],
+            "files": result["files"],
+            "message": f"Successfully ingested {len(saved_paths)} evidence files ({result['total_rows']:,} rows).",
+        }
+    except Exception as e:
+        logger.error(f"Multi-file ingestion error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Multi-file ingestion failed: {e}",
+        )
+
+
 @router.get(
     "/status",
     response_model=DatasetStatusResponse,

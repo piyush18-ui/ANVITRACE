@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config.settings import settings
 from app.database.duckdb import close, connect
+from app.routers.cases import cases_router
 from app.routers.dataset import router as dataset_router
 from app.routers.evidence import documents_router, evidence_router
 from app.routers.investigations import account_router, investigation_router
@@ -66,6 +67,7 @@ app.include_router(recovery_router, prefix="/api")
 app.include_router(syndicate_router, prefix="/api")
 app.include_router(evidence_router, prefix="/api")
 app.include_router(documents_router, prefix="/api")
+app.include_router(cases_router, prefix="/api")
 
 # Serve offline compiled frontend
 frontend_dist = settings.frontend_dist_path

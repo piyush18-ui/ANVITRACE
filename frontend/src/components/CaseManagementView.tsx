@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { api } from '../api';
+import type { PrimaryCandidate } from '../api';
 import {
   FolderPlus,
   FileText,
@@ -15,6 +16,8 @@ import {
   FileSpreadsheet,
   Loader2,
   ArrowLeft,
+  Sparkles,
+  Zap,
 } from 'lucide-react';
 
 interface CaseManagementViewProps {
@@ -72,13 +75,64 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
   const [newCaseAct, setNewCaseAct] = useState('Sec. 66D IT Act / 420 IPC');
   const [newCaseTarget, setNewCaseTarget] = useState('');
   const [newCaseNotes, setNewCaseNotes] = useState('');
-  const [newCaseFile, setNewCaseFile] = useState<File | null>(null);
+  const [newCaseFiles, setNewCaseFiles] = useState<File[]>([]);
 
   // Evidence upload state
   const [uploadingCaseId, setUploadingCaseId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<UploadProgressInfo | null>(null);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Primary Investigation Candidates
+  const [primaryCandidates, setPrimaryCandidates] = useState<PrimaryCandidate[]>([]);
+  const [loadingCandidates, setLoadingCandidates] = useState(false);
+
+  // Load backend cases and candidates on mount
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const resp = await api.listCases();
+        const rawList: any[] = Array.isArray(resp) ? resp : (resp as any)?.cases || [];
+        if (rawList.length > 0) {
+          const mapped: CaseDocket[] = rawList.map((c: any) => ({
+            id: c.case_id,
+            title: c.title,
+            act: c.act_section || 'Sec. 66D IT Act / 420 IPC',
+            targetAccount: c.victim_account || '',
+            officerName: c.officer_name,
+            notes: c.description,
+            createdAt: c.created_at ? new Date(c.created_at).toLocaleDateString('en-IN') : 'Active',
+            status: (c.status || 'Active Investigation') as any,
+            datasetId: c.dataset_id,
+          }));
+          setCases((prev) => {
+            const existingIds = new Set(prev.map((p) => p.id));
+            const newEntries = mapped.filter((m) => !existingIds.has(m.id));
+            const combined = [...prev, ...newEntries];
+            try {
+              localStorage.setItem('anvitrace_cases', JSON.stringify(combined));
+            } catch {}
+            return combined;
+          });
+        }
+      } catch (e) {
+        // Fallback to local storage
+      }
+
+      setLoadingCandidates(true);
+      try {
+        const cands = await api.getPrimaryCandidates(undefined, 6);
+        if (cands && Array.isArray(cands)) {
+          setPrimaryCandidates(cands);
+        }
+      } catch {
+        // No candidates available yet
+      } finally {
+        setLoadingCandidates(false);
+      }
+    };
+    fetchInitialData();
+  }, []);
 
   const saveCases = (updated: CaseDocket[]) => {
     setCases(updated);
@@ -89,34 +143,68 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
     }
   };
 
-  const handleAttachEvidence = async (caseId: string, file: File) => {
+  const handleAttachEvidence = async (caseId: string, files: File[]) => {
+    if (!files || files.length === 0) return;
     setUploadingCaseId(caseId);
     setUploadError(null);
     setUploadMessage(null);
+    const totalBytes = files.reduce((acc, f) => acc + f.size, 0);
+
     setUploadProgress({
-      percent: 5,
-      stage: 'Preparing evidence CSV payload...',
+      percent: 10,
+      stage: `Preparing ${files.length} evidence file(s)...`,
       loaded: 0,
-      total: file.size,
+      total: totalBytes,
     });
+
     try {
-      const resp = await api.uploadDataset(file, (p) => {
-        setUploadProgress(p);
-      });
+      let resp: any;
+      if (files.length === 1) {
+        resp = await api.uploadDataset(files[0], (p) => {
+          setUploadProgress(p);
+        });
+      } else {
+        setUploadProgress({
+          percent: 30,
+          stage: `Ingesting batch of ${files.length} CSV files into DuckDB...`,
+          loaded: totalBytes / 2,
+          total: totalBytes,
+        });
+        resp = await api.uploadMultipleDatasets(files);
+        setUploadProgress({
+          percent: 100,
+          stage: 'Batch ingestion complete',
+          loaded: totalBytes,
+          total: totalBytes,
+        });
+      }
+
+      const filenames = files.map((f) => f.name).join(', ');
+      const totalRows = resp.total_rows || resp.total_records_ingested || 2000000;
+      const datasetId = resp.dataset_id;
+      const datasetHash = resp.dataset_hash || resp.manifest_sha256;
+
       const updated = cases.map((c) => {
         if (c.id === caseId) {
           return {
             ...c,
-            datasetId: resp.dataset_id,
-            datasetFilename: file.name,
-            datasetTotalRows: resp.total_rows || 2000000,
-            datasetHash: resp.dataset_hash,
+            datasetId,
+            datasetFilename: filenames,
+            datasetTotalRows: totalRows,
+            datasetHash,
           };
         }
         return c;
       });
       saveCases(updated);
-      setUploadMessage(`Evidence CSV '${file.name}' attached to Case ${caseId}! Successfully ingested.`);
+      setUploadMessage(
+        `Successfully ingested ${files.length} evidence file(s) (${filenames}) into Case ${caseId}!`
+      );
+
+      // Refresh candidates after new data ingestion
+      api.getPrimaryCandidates(datasetId, 6).then((cands) => {
+        if (cands && Array.isArray(cands)) setPrimaryCandidates(cands);
+      }).catch(() => {});
     } catch (err: any) {
       setUploadError(`Evidence upload failed: ${err.message}`);
     } finally {
@@ -134,25 +222,31 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
     let attachedRows: number | undefined;
     let attachedHash: string | undefined;
 
-    // If an evidence file is attached, upload it first
-    if (newCaseFile) {
+    // If evidence files are attached, upload them first
+    if (newCaseFiles.length > 0) {
       setUploadingCaseId('new_case');
       setUploadError(null);
+      const totalBytes = newCaseFiles.reduce((acc, f) => acc + f.size, 0);
       setUploadProgress({
-        percent: 5,
-        stage: 'Preparing evidence CSV payload...',
+        percent: 10,
+        stage: `Ingesting ${newCaseFiles.length} evidence file(s)...`,
         loaded: 0,
-        total: newCaseFile.size,
+        total: totalBytes,
       });
       try {
-        const uploadResp = await api.uploadDataset(newCaseFile, (p) => {
-          setUploadProgress(p);
-        });
+        let uploadResp: any;
+        if (newCaseFiles.length === 1) {
+          uploadResp = await api.uploadDataset(newCaseFiles[0], (p) => {
+            setUploadProgress(p);
+          });
+        } else {
+          uploadResp = await api.uploadMultipleDatasets(newCaseFiles);
+        }
         attachedDatasetId = uploadResp.dataset_id;
-        attachedFilename = newCaseFile.name;
-        attachedRows = uploadResp.total_rows || 2000000;
-        attachedHash = uploadResp.dataset_hash;
-        setUploadMessage(`Dataset '${newCaseFile.name}' ingested and attached to new case!`);
+        attachedFilename = newCaseFiles.map((f) => f.name).join(', ');
+        attachedRows = uploadResp.total_rows || uploadResp.total_records_ingested || 2000000;
+        attachedHash = uploadResp.dataset_hash || uploadResp.manifest_sha256;
+        setUploadMessage(`Evidence ingested and attached to new case!`);
       } catch (err: any) {
         setUploadError(`Failed to ingest evidence CSV: ${err.message}`);
         setUploadingCaseId(null);
@@ -179,20 +273,34 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
       datasetHash: attachedHash,
     };
 
+    // Sync with backend SQLite/DuckDB
+    try {
+      await api.registerCase({
+        case_id: newDocket.id,
+        title: newDocket.title,
+        act_section: newDocket.act,
+        victim_account: newDocket.targetAccount,
+        description: newDocket.notes,
+        dataset_id: attachedDatasetId,
+      });
+    } catch (e) {
+      console.warn('Backend case registration sync note:', e);
+    }
+
     const updated = [newDocket, ...cases];
     saveCases(updated);
 
     // Save active case to localStorage for cross-page persistence
     try {
       localStorage.setItem('anvitrace_active_case', JSON.stringify(newDocket));
-    } catch { }
+    } catch {}
 
     // Reset form
     setNewCaseId('');
     setNewCaseTitle('');
     setNewCaseTarget('');
     setNewCaseNotes('');
-    setNewCaseFile(null);
+    setNewCaseFiles([]);
     setUploadingCaseId(null);
     setUploadProgress(null);
     setShowCreateModal(false);
@@ -354,6 +462,81 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
         )}
       </div>
 
+      {/* Primary Investigation Candidates (Autonomous ML & Graph Centrality Ranking) */}
+      {primaryCandidates.length > 0 && (
+        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
+                <Sparkles size={16} />
+              </span>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 tracking-tight">
+                  Primary Investigation Candidates (Autonomous Forensic Ranking)
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  Accounts flagged by blended rule-based topologies and Isolation Forest unsupervised anomaly model
+                </p>
+              </div>
+            </div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-100 px-2.5 py-1 rounded-md font-mono">
+              Combined Score = 0.60 Rule + 0.40 ML
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-1">
+            {primaryCandidates.slice(0, 6).map((cand) => (
+              <div
+                key={cand.account_id}
+                className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-white hover:border-amber-300 transition-all shadow-2xs space-y-2.5"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs font-bold text-slate-900">
+                    {cand.account_id}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200 font-mono">
+                      Priority: {cand.investigation_priority_score.toFixed(1)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[11px] bg-white p-2 rounded-lg border border-slate-200/60 font-mono">
+                  <div>
+                    <span className="text-[9px] text-slate-400 uppercase block font-sans">RULE RISK:</span>
+                    <strong className="text-amber-800">{cand.rule_risk_score.toFixed(1)} / 100</strong>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-slate-400 uppercase block font-sans">ML ANOMALY:</span>
+                    <strong className="text-indigo-700">{cand.ml_anomaly_score.toFixed(1)} / 100</strong>
+                  </div>
+                </div>
+
+                {cand.supporting_signals && cand.supporting_signals.length > 0 && (
+                  <p className="text-[10px] text-slate-600 line-clamp-1 italic">
+                    • {cand.supporting_signals[0]}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[10px] font-medium text-slate-500 font-mono">
+                    Total: ₹{(cand.in_amount || 0).toLocaleString('en-IN')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onInvestigateAccount(cand.account_id)}
+                    className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-[11px] font-bold transition-colors inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>Investigate</span>
+                    <ArrowRight size={11} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Case Dockets Grid or Empty State */}
       {cases.length === 0 ? (
         <div className="bg-white p-16 rounded-2xl border border-slate-200/80 shadow-xs text-center space-y-4">
@@ -451,15 +634,16 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
                     <div>
                       <label className="cursor-pointer inline-flex items-center gap-1.5 text-xs font-semibold text-slate-800 hover:text-slate-950 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg border border-slate-200 transition-colors">
                         <UploadCloud size={13} />
-                        <span>Attach Evidence CSV</span>
+                        <span>Attach Evidence CSV(s)</span>
                         <input
                           type="file"
                           accept=".csv"
+                          multiple
                           disabled={Boolean(uploadingCaseId)}
                           className="hidden"
                           onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleAttachEvidence(docket.id, file);
+                            const files = Array.from(e.target.files || []);
+                            if (files.length > 0) handleAttachEvidence(docket.id, files);
                           }}
                         />
                       </label>
@@ -618,44 +802,63 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
 
               <div>
                 <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">
-                  ATTACH EVIDENCE CSV (OPTIONAL)
+                  ATTACH EVIDENCE CSV(S) (OPTIONAL)
                 </label>
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-2.5">
                   <input
                     type="file"
                     accept=".csv"
+                    multiple
                     disabled={Boolean(uploadingCaseId)}
                     onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) setNewCaseFile(f);
+                      const files = Array.from(e.target.files || []);
+                      if (files.length > 0) setNewCaseFiles(files);
                     }}
                     className="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-slate-900 file:text-white hover:file:bg-slate-800 disabled:opacity-50 cursor-pointer"
                   />
 
                   {/* Ready File Preview badge when selected */}
-                  {newCaseFile && !uploadingCaseId && (
-                    <div className="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between text-xs shadow-xs">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center shrink-0">
-                          <FileSpreadsheet size={16} />
+                  {newCaseFiles.length > 0 && !uploadingCaseId && (
+                    <div className="space-y-1.5">
+                      <div className="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between text-xs shadow-xs">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center shrink-0">
+                            <FileSpreadsheet size={16} />
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-bold text-slate-900 truncate">
+                              {newCaseFiles.length === 1
+                                ? newCaseFiles[0].name
+                                : `${newCaseFiles.length} Evidence CSV Files Attached`}
+                            </span>
+                            <span className="text-[11px] text-slate-500 font-mono">
+                              {(
+                                newCaseFiles.reduce((acc, f) => acc + f.size, 0) /
+                                (1024 * 1024)
+                              ).toFixed(1)}{' '}
+                              MB total • Ready for Ingestion
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="font-bold text-slate-900 truncate">{newCaseFile.name}</span>
-                          <span className="text-[11px] text-slate-500 font-mono">
-                            {(newCaseFile.size / (1024 * 1024)).toFixed(1)} MB • Ready for Ingestion
-                          </span>
-                        </div>
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full shrink-0">
+                          {newCaseFiles.length} READY
+                        </span>
                       </div>
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full shrink-0">
-                        READY
-                      </span>
+                      {newCaseFiles.length > 1 && (
+                        <div className="text-[10px] font-mono text-slate-400 pl-1 truncate">
+                          {newCaseFiles.map((f) => f.name).join(' • ')}
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {/* Active Ingestion Progress Bar */}
                   {uploadingCaseId === 'new_case' && (
                     <div className="pt-1">
-                      {renderProgressBar(uploadProgress, newCaseFile?.name)}
+                      {renderProgressBar(
+                        uploadProgress,
+                        newCaseFiles.length > 0 ? newCaseFiles[0].name : undefined
+                      )}
                     </div>
                   )}
                 </div>

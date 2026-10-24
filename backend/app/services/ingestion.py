@@ -81,6 +81,33 @@ def compute_file_sha256(file_path: Path, chunk_size: int = 1024 * 1024) -> str:
     return sha256.hexdigest()
 
 
+def resolve_column_mappings(available_cols: set[str]) -> dict[str, str | None]:
+    """Map flexible header variations to canonical schema column names."""
+    cols_lower = {c.lower(): c for c in available_cols}
+    aliases = {
+        "Transaction_ID": ["transaction_id", "tx_id", "txn_id", "trans_id", "reference_no", "ref_no", "id"],
+        "Sender_Account": ["sender_account", "from_account", "source_account", "remitter_account", "debtor_account", "sender"],
+        "Receiver_Account": ["receiver_account", "to_account", "destination_account", "beneficiary_account", "creditor_account", "receiver"],
+        "Sender_IFSC": ["sender_ifsc", "from_ifsc", "source_ifsc", "remitter_ifsc"],
+        "Receiver_IFSC": ["receiver_ifsc", "to_ifsc", "destination_ifsc", "beneficiary_ifsc"],
+        "Amount": ["amount", "txn_amount", "transaction_amount", "value", "amt"],
+        "Timestamp": ["timestamp", "txn_timestamp", "transaction_date", "datetime", "date_time", "date"],
+        "Payment_Mode": ["payment_mode", "mode", "channel", "txn_type", "type"],
+        "Narration": ["narration", "description", "remarks", "particulars", "memo"],
+        "IP_Address": ["ip_address", "ip", "client_ip", "ip_addr"],
+        "Device_Type": ["device_type", "device", "device_model", "client_device"],
+    }
+    mapping: dict[str, str | None] = {}
+    for canonical, alt_list in aliases.items():
+        found = None
+        for alt in alt_list:
+            if alt in cols_lower:
+                found = cols_lower[alt]
+                break
+        mapping[canonical] = found
+    return mapping
+
+
 class IngestionService:
     """Orchestrates high-performance streaming ingestion, normalization, storage and indexing."""
 
@@ -161,7 +188,7 @@ class IngestionService:
                 self.conn.execute("DROP TABLE _keep_tx")
                 self.conn.execute("DROP TABLE _keep_af")
 
-        # Inspect CSV schema
+        # Inspect CSV schema and resolve column mapping aliases
         escaped_path = file_path.as_posix().replace("'", "''")
         t_inspect_start = time.perf_counter()
         schema_cols = self.conn.execute(
@@ -171,20 +198,49 @@ class IngestionService:
         t_csv_parsing = max(0.01, t_inspect_end - t_inspect_start)
 
         col_names = {col[0] for col in schema_cols}
-        has_narration = "Narration" in col_names
-        has_ip = "IP_Address" in col_names
-        has_device = "Device_Type" in col_names
+        col_map = resolve_column_mappings(col_names)
 
-        narration_expr = "Narration" if has_narration else "NULL AS Narration"
-        ip_expr = "IP_Address" if has_ip else "NULL AS IP_Address"
+        tx_col = col_map.get("Transaction_ID")
+        tx_expr = f'trim(COALESCE("{tx_col}", \'\')) AS Transaction_ID' if tx_col else "concat('TX_', row_number() OVER ()) AS Transaction_ID"
+
+        s_acc = col_map.get("Sender_Account")
+        s_acc_expr = f'trim(COALESCE("{s_acc}", \'UNKNOWN\')) AS Sender_Account' if s_acc else "'UNKNOWN' AS Sender_Account"
+
+        r_acc = col_map.get("Receiver_Account")
+        r_acc_expr = f'trim(COALESCE("{r_acc}", \'UNKNOWN\')) AS Receiver_Account' if r_acc else "'UNKNOWN' AS Receiver_Account"
+
+        s_ifsc = col_map.get("Sender_IFSC")
+        s_ifsc_expr = f'upper(trim(COALESCE("{s_ifsc}", \'UNKN0000000\'))) AS Sender_IFSC' if s_ifsc else "'UNKN0000000' AS Sender_IFSC"
+
+        r_ifsc = col_map.get("Receiver_IFSC")
+        r_ifsc_expr = f'upper(trim(COALESCE("{r_ifsc}", \'UNKN0000000\'))) AS Receiver_IFSC' if r_ifsc else "'UNKN0000000' AS Receiver_IFSC"
+
+        amt_col = col_map.get("Amount")
+        amt_expr = f'"{amt_col}" AS raw_amount' if amt_col else "'0.00' AS raw_amount"
+
+        ts_col = col_map.get("Timestamp")
+        ts_expr = f'"{ts_col}" AS raw_timestamp' if ts_col else "'2026-01-01 00:00:00' AS raw_timestamp"
+
+        mode_col = col_map.get("Payment_Mode")
+        mode_expr = f'trim(COALESCE("{mode_col}", \'TRANSFER\')) AS raw_payment_mode' if mode_col else "'TRANSFER' AS raw_payment_mode"
+
+        narr_col = col_map.get("Narration")
+        narration_expr = f'"{narr_col}" AS Narration' if narr_col else "NULL AS Narration"
+
+        ip_col = col_map.get("IP_Address")
+        ip_expr = f'"{ip_col}" AS IP_Address' if ip_col else "NULL AS IP_Address"
+
+        dev_col = col_map.get("Device_Type")
         device_expr = (
-            "COALESCE(NULLIF(trim(Device_Type), ''), 'UNKNOWN') AS Device_Type"
-            if has_device
+            f'COALESCE(NULLIF(trim("{dev_col}"), \'\'), \'UNKNOWN\') AS Device_Type'
+            if dev_col
             else "'UNKNOWN' AS Device_Type"
         )
-        dup_narration = "COALESCE(Narration, '')" if has_narration else "''"
-        dup_ip = "COALESCE(IP_Address, '')" if has_ip else "''"
-        dup_device = "COALESCE(Device_Type, '')" if has_device else "''"
+        safe_filename = file_path.name.replace("'", "''")
+
+        dup_narration = "COALESCE(Narration, '')"
+        dup_ip = "COALESCE(IP_Address, '')"
+        dup_device = "COALESCE(Device_Type, '')"
 
         t1_end = time.perf_counter()
         t_file_handling = t1_end - t1_start
@@ -211,22 +267,23 @@ class IngestionService:
             Payment_Mode, Narration, IP_Address, Device_Type,
             raw_timestamp, raw_amount, raw_payment_mode,
             dataset_id, source_row, validation_status,
-            is_repeated_tx, is_exact_duplicate
+            is_repeated_tx, is_exact_duplicate, source_filename
         )
         WITH raw_numbered AS (
             SELECT
                 row_number() OVER () AS source_row,
-                trim(COALESCE(Transaction_ID, '')) AS Transaction_ID,
-                trim(COALESCE(Sender_Account, '')) AS Sender_Account,
-                trim(COALESCE(Receiver_Account, '')) AS Receiver_Account,
-                upper(trim(COALESCE(Sender_IFSC, ''))) AS Sender_IFSC,
-                upper(trim(COALESCE(Receiver_IFSC, ''))) AS Receiver_IFSC,
-                Amount AS raw_amount,
-                Timestamp AS raw_timestamp,
-                trim(COALESCE(Payment_Mode, '')) AS raw_payment_mode,
+                {tx_expr},
+                {s_acc_expr},
+                {r_acc_expr},
+                {s_ifsc_expr},
+                {r_ifsc_expr},
+                {amt_expr},
+                {ts_expr},
+                {mode_expr},
                 {narration_expr},
                 {ip_expr},
-                {device_expr}
+                {device_expr},
+                '{safe_filename}' AS source_filename
             FROM read_csv('{escaped_path}', header=true, all_varchar=true)
         ),
         validated AS (
@@ -243,6 +300,7 @@ class IngestionService:
                 Narration,
                 IP_Address,
                 Device_Type,
+                source_filename,
                 TRY_CAST(raw_amount AS DECIMAL(18, 2)) AS clean_amount,
                 COALESCE(
                     TRY_CAST(raw_timestamp AS TIMESTAMP),
@@ -296,7 +354,8 @@ class IngestionService:
                 ELSE 'INVALID'
             END AS validation_status,
             is_repeated_tx,
-            is_exact_duplicate
+            is_exact_duplicate,
+            source_filename
         FROM validated;
         """)
         t_stream_end = time.perf_counter()
@@ -501,3 +560,267 @@ class IngestionService:
             FULL OUTER JOIN incoming i ON o.account_id = i.account_id;
             """
         )
+
+        # Trigger Isolation Forest ML Anomaly scoring
+        try:
+            from app.algorithms.isolation_forest import IsolationForestEngine
+            engine = IsolationForestEngine()
+            engine.score_dataset(self.conn, dataset_id)
+        except Exception as exc:
+            logger.debug(f"Isolation Forest post-ingestion scoring notice: {exc}")
+
+    def ingest_multiple_files(
+        self,
+        file_paths: list[Path],
+        dataset_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Ingest multiple forensic evidence files into a unified dataset with full provenance."""
+        if not file_paths:
+            raise ValueError("No files provided for multi-file ingestion.")
+
+        # Compute composite hash from all individual hashes
+        hashes = [compute_file_sha256(fp) for fp in file_paths]
+        composite_hasher = hashlib.sha256()
+        for h in hashes:
+            composite_hasher.update(h.encode("utf-8"))
+        composite_hash = composite_hasher.hexdigest()
+
+        if not dataset_id:
+            dataset_id = f"ds_{composite_hash[:16]}"
+
+        primary_filename = f"{len(file_paths)} files ({file_paths[0].name}, ...)"
+
+        # Register primary dataset entry
+        self.repo.create_dataset(
+            dataset_id=dataset_id,
+            dataset_hash=composite_hash,
+            filename=primary_filename,
+            schema_version=SCHEMA_VERSION,
+            normalization_version=NORMALIZATION_VERSION,
+        )
+
+        file_reports: list[dict[str, Any]] = []
+        global_row_offset = 0
+
+        # Drop indexes during multi-file bulk load
+        self.conn.execute("""
+            SET preserve_insertion_order = false;
+            DROP INDEX IF EXISTS idx_tx_dataset_id;
+            DROP INDEX IF EXISTS idx_tx_sender_acc;
+            DROP INDEX IF EXISTS idx_tx_receiver_acc;
+            DROP INDEX IF EXISTS idx_tx_timestamp;
+            DROP INDEX IF EXISTS idx_tx_transaction_id;
+        """)
+
+        for fp in file_paths:
+            safe_filename = fp.name.replace("'", "''")
+            escaped_path = fp.as_posix().replace("'", "''")
+
+            # Inspect schema
+            schema_cols = self.conn.execute(
+                f"DESCRIBE SELECT * FROM read_csv('{escaped_path}', header=true, all_varchar=true) LIMIT 0"
+            ).fetchall()
+            col_names = {col[0] for col in schema_cols}
+            col_map = resolve_column_mappings(col_names)
+
+            tx_col = col_map.get("Transaction_ID")
+            tx_expr = f'trim(COALESCE("{tx_col}", \'\')) AS Transaction_ID' if tx_col else f"concat('TX_{safe_filename[:4]}_', row_number() OVER ()) AS Transaction_ID"
+
+            s_acc = col_map.get("Sender_Account")
+            s_acc_expr = f'trim(COALESCE("{s_acc}", \'UNKNOWN\')) AS Sender_Account' if s_acc else "'UNKNOWN' AS Sender_Account"
+
+            r_acc = col_map.get("Receiver_Account")
+            r_acc_expr = f'trim(COALESCE("{r_acc}", \'UNKNOWN\')) AS Receiver_Account' if r_acc else "'UNKNOWN' AS Receiver_Account"
+
+            s_ifsc = col_map.get("Sender_IFSC")
+            s_ifsc_expr = f'upper(trim(COALESCE("{s_ifsc}", \'UNKN0000000\'))) AS Sender_IFSC' if s_ifsc else "'UNKN0000000' AS Sender_IFSC"
+
+            r_ifsc = col_map.get("Receiver_IFSC")
+            r_ifsc_expr = f'upper(trim(COALESCE("{r_ifsc}", \'UNKN0000000\'))) AS Receiver_IFSC' if r_ifsc else "'UNKN0000000' AS Receiver_IFSC"
+
+            amt_col = col_map.get("Amount")
+            amt_expr = f'"{amt_col}" AS raw_amount' if amt_col else "'0.00' AS raw_amount"
+
+            ts_col = col_map.get("Timestamp")
+            ts_expr = f'"{ts_col}" AS raw_timestamp' if ts_col else "'2026-01-01 00:00:00' AS raw_timestamp"
+
+            mode_col = col_map.get("Payment_Mode")
+            mode_expr = f'trim(COALESCE("{mode_col}", \'TRANSFER\')) AS raw_payment_mode' if mode_col else "'TRANSFER' AS raw_payment_mode"
+
+            narr_col = col_map.get("Narration")
+            narration_expr = f'"{narr_col}" AS Narration' if narr_col else "NULL AS Narration"
+
+            ip_col = col_map.get("IP_Address")
+            ip_expr = f'"{ip_col}" AS IP_Address' if ip_col else "NULL AS IP_Address"
+
+            dev_col = col_map.get("Device_Type")
+            device_expr = f'COALESCE(NULLIF(trim("{dev_col}"), \'\'), \'UNKNOWN\') AS Device_Type' if dev_col else "'UNKNOWN' AS Device_Type"
+
+            dup_narration = "COALESCE(Narration, '')"
+            dup_ip = "COALESCE(IP_Address, '')"
+            dup_device = "COALESCE(Device_Type, '')"
+
+            self.conn.execute(f"""
+            INSERT INTO transactions (
+                record_id, Transaction_ID, Sender_Account, Receiver_Account,
+                Sender_IFSC, Receiver_IFSC, Amount, Timestamp,
+                Payment_Mode, Narration, IP_Address, Device_Type,
+                raw_timestamp, raw_amount, raw_payment_mode,
+                dataset_id, source_row, validation_status,
+                is_repeated_tx, is_exact_duplicate, source_filename
+            )
+            WITH raw_numbered AS (
+                SELECT
+                    row_number() OVER () + {global_row_offset} AS source_row,
+                    {tx_expr},
+                    {s_acc_expr},
+                    {r_acc_expr},
+                    {s_ifsc_expr},
+                    {r_ifsc_expr},
+                    {amt_expr},
+                    {ts_expr},
+                    {mode_expr},
+                    {narration_expr},
+                    {ip_expr},
+                    {device_expr},
+                    '{safe_filename}' AS source_filename
+                FROM read_csv('{escaped_path}', header=true, all_varchar=true)
+            ),
+            validated AS (
+                SELECT
+                    source_row,
+                    Transaction_ID,
+                    Sender_Account,
+                    Receiver_Account,
+                    Sender_IFSC,
+                    Receiver_IFSC,
+                    raw_amount,
+                    raw_timestamp,
+                    raw_payment_mode,
+                    Narration,
+                    IP_Address,
+                    Device_Type,
+                    source_filename,
+                    TRY_CAST(raw_amount AS DECIMAL(18, 2)) AS clean_amount,
+                    COALESCE(
+                        TRY_CAST(raw_timestamp AS TIMESTAMP),
+                        TRY_STRPTIME(raw_timestamp, '%d-%m-%Y %H:%M:%S'),
+                        TRY_STRPTIME(raw_timestamp, '%Y/%m/%d %H:%M:%S')
+                    ) AS clean_timestamp,
+                    upper(raw_payment_mode) AS clean_payment_mode,
+                    (length(Sender_Account) = 12 AND regexp_matches(Sender_Account, '^[A-Za-z0-9]{{12}}$')) AS s_acc_ok,
+                    (length(Receiver_Account) = 12 AND regexp_matches(Receiver_Account, '^[A-Za-z0-9]{{12}}$')) AS r_acc_ok,
+                    (length(Sender_IFSC) = 11 AND regexp_matches(Sender_IFSC, '^[A-Z]{{4}}0[A-Z0-9]{{6}}$')) AS s_ifsc_ok,
+                    (length(Receiver_IFSC) = 11 AND regexp_matches(Receiver_IFSC, '^[A-Z]{{4}}0[A-Z0-9]{{6}}$')) AS r_ifsc_ok,
+                    (
+                        NOT (regexp_matches(substr(Sender_Account, 1, 4), '^[A-Za-z]{{4}}$') AND regexp_matches(substr(Sender_IFSC, 1, 4), '^[A-Za-z]{{4}}$'))
+                        OR upper(substr(Sender_Account, 1, 4)) = upper(substr(Sender_IFSC, 1, 4))
+                    ) AS s_cons_ok,
+                    (
+                        NOT (regexp_matches(substr(Receiver_Account, 1, 4), '^[A-Za-z]{{4}}$') AND regexp_matches(substr(Receiver_IFSC, 1, 4), '^[A-Za-z]{{4}}$'))
+                        OR upper(substr(Receiver_Account, 1, 4)) = upper(substr(Receiver_IFSC, 1, 4))
+                    ) AS r_cons_ok,
+                    upper(raw_payment_mode) IN ('UPI', 'IMPS', 'NEFT', 'RTGS') AS mode_ok,
+                    (row_number() OVER (PARTITION BY Transaction_ID ORDER BY source_row) > 1) AS is_repeated_tx,
+                    (row_number() OVER (
+                        PARTITION BY Transaction_ID, Sender_Account, Receiver_Account, Sender_IFSC, Receiver_IFSC,
+                                     raw_amount, raw_timestamp, raw_payment_mode, {dup_narration}, {dup_ip}, {dup_device}
+                        ORDER BY source_row
+                    ) > 1) AS is_exact_duplicate
+                FROM raw_numbered
+            )
+            SELECT
+                'rec_' || '{dataset_id}' || '_' || CAST(source_row AS VARCHAR) AS record_id,
+                Transaction_ID,
+                Sender_Account,
+                Receiver_Account,
+                Sender_IFSC,
+                Receiver_IFSC,
+                COALESCE(clean_amount, 0.00) AS Amount,
+                COALESCE(clean_timestamp, TIMESTAMP '1970-01-01 00:00:00') AS Timestamp,
+                CASE WHEN mode_ok THEN clean_payment_mode ELSE raw_payment_mode END AS Payment_Mode,
+                Narration,
+                IP_Address,
+                Device_Type,
+                raw_timestamp,
+                raw_amount,
+                raw_payment_mode,
+                '{dataset_id}' AS dataset_id,
+                source_row,
+                CASE
+                    WHEN s_acc_ok AND r_acc_ok AND s_ifsc_ok AND r_ifsc_ok AND s_cons_ok AND r_cons_ok
+                         AND clean_amount IS NOT NULL AND clean_amount > 0 AND clean_timestamp IS NOT NULL AND mode_ok
+                    THEN 'VALID'
+                    ELSE 'INVALID'
+                END AS validation_status,
+                is_repeated_tx,
+                is_exact_duplicate,
+                source_filename
+            FROM validated;
+            """)
+
+            file_count = self.conn.execute(
+                f"SELECT count(*) FROM transactions WHERE dataset_id = '{dataset_id}' AND source_filename = '{safe_filename}'"
+            ).fetchone()[0]
+            global_row_offset += file_count
+
+            file_reports.append({
+                "filename": fp.name,
+                "rows_ingested": file_count,
+                "sha256": compute_file_sha256(fp),
+                "mapped_columns": {k: v for k, v in col_map.items() if v is not None},
+            })
+
+        # Re-create essential DuckDB indexes
+        self.conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_tx_sender_acc ON transactions (Sender_Account);
+            CREATE INDEX IF NOT EXISTS idx_tx_receiver_acc ON transactions (Receiver_Account);
+            CREATE INDEX IF NOT EXISTS idx_tx_transaction_id ON transactions (Transaction_ID);
+        """)
+
+        # Precompute account features
+        self._precompute_account_features(dataset_id)
+
+        # Trigger Isolation Forest scoring
+        try:
+            from app.algorithms.isolation_forest import IsolationForestEngine
+            engine = IsolationForestEngine()
+            engine.score_dataset(self.conn, dataset_id)
+        except Exception as exc:
+            logger.debug(f"Isolation Forest multi-file scoring notice: {exc}")
+
+        # Compute total stats
+        stats = self.conn.execute(f"""
+        SELECT
+            count(*) as total,
+            count(*) FILTER (WHERE validation_status = 'VALID') as valid,
+            count(*) FILTER (WHERE validation_status = 'INVALID') as invalid,
+            count(*) FILTER (WHERE is_repeated_tx) as repeated,
+            count(*) FILTER (WHERE is_exact_duplicate) as exact_dup
+        FROM transactions WHERE dataset_id = '{dataset_id}'
+        """).fetchone()
+
+        total_rows = stats[0] if stats else 0
+        valid_rows = stats[1] if stats else 0
+        invalid_rows = stats[2] if stats else 0
+
+        self.repo.update_dataset_metrics(
+            dataset_id=dataset_id,
+            total_rows=total_rows,
+            valid_rows=valid_rows,
+            invalid_rows=invalid_rows,
+            repeated_tx_ids=stats[3] if stats else 0,
+            exact_duplicates=stats[4] if stats else 0,
+            status="COMPLETED",
+        )
+
+        return {
+            "dataset_id": dataset_id,
+            "dataset_hash": composite_hash,
+            "total_files": len(file_paths),
+            "files": file_reports,
+            "total_rows": total_rows,
+            "valid_rows": valid_rows,
+            "invalid_rows": invalid_rows,
+            "status": "COMPLETED",
+        }

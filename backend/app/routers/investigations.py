@@ -184,3 +184,75 @@ async def trace_victim_funds(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Investigation trace failed: {e}",
         )
+
+
+@account_router.get(
+    "/{account_id}/ml-anomaly",
+    summary="Get Isolation Forest unsupervised ML anomaly score and feature explainability",
+)
+async def get_account_ml_anomaly(
+    account_id: str,
+    dataset_id: str | None = Query(None, description="Optional dataset ID. Defaults to latest dataset."),
+):
+    """Compute and return explainable Isolation Forest anomaly score for an account."""
+    conn = get_connection()
+    repo_ds = DatasetRepository(conn)
+    if not dataset_id:
+        latest = repo_ds.get_latest_dataset()
+        if not latest:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No datasets found in database.",
+            )
+        dataset_id = latest["dataset_id"]
+
+    from app.algorithms.isolation_forest import IsolationForestEngine
+    from app.services.risk_engine import RiskAssessmentService
+
+    risk_service = RiskAssessmentService(conn)
+    risk_prof = risk_service.assess_account_risk(account_id, dataset_id)
+    rule_score = risk_prof.mule_risk_index if risk_prof else 0.0
+
+    engine = IsolationForestEngine()
+    result = engine.score_account(conn, account_id, dataset_id, rule_risk_score=rule_score)
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Account '{account_id}' could not be scored in dataset '{dataset_id}'.",
+        )
+    return result.to_dict()
+
+
+@investigation_router.get(
+    "/search",
+    summary="Universal multi-identifier search with provenance (Account, TxID, IP, IFSC, Evidence)",
+)
+async def universal_search(
+    q: str = Query(..., description="Query identifier (Account ID, Tx ID, IP, IFSC, Evidence ID)"),
+    field_type: str = Query("auto", description="Field type: 'auto', 'account', 'transaction_id', 'ip_address', 'ifsc', 'evidence_id'"),
+    dataset_id: str | None = Query(None, description="Optional dataset ID. Defaults to latest dataset."),
+    limit: int = Query(50, ge=1, le=200),
+):
+    """Execute universal identifier search across accounts, transactions, and evidence."""
+    conn = get_connection()
+    from app.services.search_recommendation import SearchRecommendationService
+
+    svc = SearchRecommendationService(conn)
+    return svc.search_universal(query=q, field_type=field_type, dataset_id=dataset_id, limit=limit)
+
+
+@investigation_router.get(
+    "/primary-candidates",
+    summary="Get explainable primary investigation candidates ranked by multi-signal priority",
+)
+async def get_primary_investigation_candidates(
+    dataset_id: str | None = Query(None, description="Optional dataset ID. Defaults to latest dataset."),
+    limit: int = Query(10, ge=1, le=50),
+):
+    """Rank and return explainable primary investigation candidates across the dataset."""
+    conn = get_connection()
+    from app.services.search_recommendation import SearchRecommendationService
+
+    svc = SearchRecommendationService(conn)
+    return svc.recommend_primary_candidates(dataset_id=dataset_id, limit=limit)
+

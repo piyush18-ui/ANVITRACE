@@ -486,4 +486,201 @@ export const api = {
   getDocumentDownloadUrl: (documentId: string): string => {
     return `${API_BASE}/documents/download/${documentId}`;
   },
+
+  // 7. Multi-File Ingestion
+  uploadMultipleDatasets: async (files: File[]): Promise<any> => {
+    const formData = new FormData();
+    for (const f of files) {
+      formData.append('files', f);
+    }
+    const res = await fetch(`${API_BASE}/dataset/upload-multi`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Multi-file ingestion failed' }));
+      throw new Error(err.detail || 'Multi-file upload failed');
+    }
+    return res.json();
+  },
+
+  // 8. Isolation Forest ML Anomaly
+  getAccountMLAnomaly: async (accountId: string, datasetId?: string): Promise<AccountMLAnomaly> => {
+    const url = datasetId
+      ? `${API_BASE}/accounts/${encodeURIComponent(accountId)}/ml-anomaly?dataset_id=${encodeURIComponent(datasetId)}`
+      : `${API_BASE}/accounts/${encodeURIComponent(accountId)}/ml-anomaly`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('ML anomaly scoring unavailable');
+    return res.json();
+  },
+
+  // 9. Universal Multi-Identifier Search
+  searchUniversal: async (
+    query: string,
+    fieldType: string = 'auto',
+    datasetId?: string,
+    limit: number = 50
+  ): Promise<UniversalSearchResult> => {
+    const params = new URLSearchParams({ q: query, field_type: fieldType, limit: String(limit) });
+    if (datasetId) params.append('dataset_id', datasetId);
+    const res = await fetch(`${API_BASE}/investigations/search?${params.toString()}`);
+    if (!res.ok) throw new Error('Universal search failed');
+    return res.json();
+  },
+
+  // 10. Primary Investigation Candidates
+  getPrimaryCandidates: async (datasetId?: string, limit: number = 10): Promise<PrimaryCandidate[]> => {
+    const url = datasetId
+      ? `${API_BASE}/investigations/primary-candidates?dataset_id=${encodeURIComponent(datasetId)}&limit=${limit}`
+      : `${API_BASE}/investigations/primary-candidates?limit=${limit}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Primary candidate recommendation unavailable');
+    return res.json();
+  },
+
+  // 11. SHA-256 Baseline Integrity & Change Detection
+  verifyIntegrity: async (datasetId?: string, filename?: string): Promise<IntegrityReport> => {
+    const params = new URLSearchParams();
+    if (datasetId) params.append('dataset_id', datasetId);
+    if (filename) params.append('filename', filename);
+    const res = await fetch(`${API_BASE}/evidence/verify-integrity?${params.toString()}`, {
+      method: 'POST',
+    });
+    if (!res.ok) throw new Error('Integrity verification failed');
+    return res.json();
+  },
+
+  // 12. Case AI: Bilingual Summaries & Isolated Chat
+  registerCase: async (docket: any): Promise<any> => {
+    const res = await fetch(`${API_BASE}/cases`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(docket),
+    });
+    if (!res.ok) throw new Error('Failed to register case docket');
+    return res.json();
+  },
+
+  listCases: async (): Promise<any[]> => {
+    const res = await fetch(`${API_BASE}/cases`);
+    if (!res.ok) throw new Error('Failed to list cases');
+    return res.json();
+  },
+
+  generateCaseSummary: async (
+    caseId: string,
+    language: 'en' | 'hi' = 'en',
+    datasetId?: string
+  ): Promise<CaseSummaryData> => {
+    const res = await fetch(`${API_BASE}/cases/${encodeURIComponent(caseId)}/summary`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ language, dataset_id: datasetId }),
+    });
+    if (!res.ok) throw new Error('Case summary generation failed');
+    return res.json();
+  },
+
+  chatWithCase: async (
+    caseId: string,
+    question: string,
+    datasetId?: string
+  ): Promise<CaseChatResponse> => {
+    const res = await fetch(`${API_BASE}/cases/${encodeURIComponent(caseId)}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, dataset_id: datasetId }),
+    });
+    if (!res.ok) throw new Error('Case chat request failed');
+    return res.json();
+  },
 };
+
+export interface MLAnomalyExplanation {
+  feature_name: string;
+  feature_label: string;
+  value: number;
+  population_median: number;
+  deviation_factor: number;
+  direction: string;
+  explanation: string;
+}
+
+export interface AccountMLAnomaly {
+  account_id: string;
+  dataset_id: string;
+  anomaly_score: number;
+  is_anomaly: boolean;
+  raw_score: number;
+  explanations: MLAnomalyExplanation[];
+  combined_priority_score: number;
+  model_version: string;
+  disclaimer: string;
+}
+
+export interface PrimaryCandidate {
+  account_id: string;
+  dataset_id: string;
+  investigation_priority_score: number;
+  rule_risk_score: number;
+  ml_anomaly_score: number;
+  candidate_tier: string;
+  in_amount: number;
+  out_amount: number;
+  in_tx_count: number;
+  out_tx_count: number;
+  distinct_senders: number;
+  distinct_receivers: number;
+  supporting_signals: string[];
+  why_ranked: string;
+  disclaimer: string;
+}
+
+export interface UniversalSearchResult {
+  query: string;
+  detected_type: string;
+  field_type_used: string;
+  dataset_id: string;
+  total_count: number;
+  results: any[];
+}
+
+export interface IntegrityReport {
+  status: 'VERIFIED_MATCH' | 'HASH_MISMATCH' | 'NO_BASELINE' | 'ERROR';
+  filename: string;
+  dataset_id?: string;
+  stored_baseline_sha256?: string;
+  current_sha256?: string;
+  file_size_bytes?: number;
+  baseline_timestamp?: string;
+  verified: boolean;
+  changes_detected?: boolean;
+  total_records?: number;
+  baseline_records?: number;
+  current_records?: number;
+  row_count_delta?: number;
+  modified_records_sample?: Array<{
+    transaction_id: string;
+    changes: Array<{ field: string; original: any; current: any }>;
+  }>;
+  message: string;
+  disclaimer?: string;
+}
+
+export interface CaseSummaryData {
+  case_id: string;
+  language: string;
+  target_account: string;
+  generated_at: string;
+  sections: Record<string, string>;
+  disclaimer: string;
+}
+
+export interface CaseChatResponse {
+  case_id: string;
+  question: string;
+  answer: string;
+  sources: any[];
+  suggested_followups: string[];
+  disclaimer: string;
+}
