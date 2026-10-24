@@ -60,7 +60,25 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
   const [cases, setCases] = useState<CaseDocket[]>(() => {
     try {
       const saved = localStorage.getItem('anvitrace_cases');
-      return saved ? JSON.parse(saved) : [];
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((c: any) => c && typeof c === 'object' && Boolean(c.id || c.case_id)).map((c: any) => ({
+            id: String(c.id || c.case_id || 'CASE-001'),
+            title: String(c.title || 'Investigation Docket'),
+            act: String(c.act || c.act_section || 'Sec. 66D IT Act / 420 IPC'),
+            targetAccount: String(c.targetAccount || c.target_account || c.victim_account || ''),
+            officerName: c.officerName || c.officer_name || '',
+            notes: c.notes || c.description || '',
+            createdAt: c.createdAt || (c.created_at ? new Date(c.created_at).toLocaleDateString('en-IN') : 'Active'),
+            status: (c.status || 'Active Investigation') as any,
+            datasetId: c.datasetId || c.dataset_id,
+            datasetFilename: c.datasetFilename || c.dataset_filename,
+            datasetHash: c.datasetHash || c.dataset_hash,
+          }));
+        }
+      }
+      return [];
     } catch {
       return [];
     }
@@ -94,21 +112,26 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
         const resp = await api.listCases();
         const rawList: any[] = Array.isArray(resp) ? resp : (resp as any)?.cases || [];
         if (rawList.length > 0) {
-          const mapped: CaseDocket[] = rawList.map((c: any) => ({
-            id: c.case_id,
-            title: c.title,
-            act: c.act_section || 'Sec. 66D IT Act / 420 IPC',
-            targetAccount: c.victim_account || '',
-            officerName: c.officer_name,
-            notes: c.description,
-            createdAt: c.created_at ? new Date(c.created_at).toLocaleDateString('en-IN') : 'Active',
-            status: (c.status || 'Active Investigation') as any,
-            datasetId: c.dataset_id,
-          }));
+          const mapped: CaseDocket[] = rawList
+            .filter((c: any) => c && typeof c === 'object')
+            .map((c: any) => ({
+              id: String(c.id || c.case_id || 'CASE-001'),
+              title: String(c.title || 'Investigation Docket'),
+              act: String(c.act || c.act_section || 'Sec. 66D IT Act / 420 IPC'),
+              targetAccount: String(c.targetAccount || c.target_account || c.victim_account || ''),
+              officerName: c.officerName || c.officer_name || '',
+              notes: c.notes || c.description || '',
+              createdAt: c.createdAt || (c.created_at ? new Date(c.created_at).toLocaleDateString('en-IN') : 'Active'),
+              status: (c.status || 'Active Investigation') as any,
+              datasetId: c.datasetId || c.dataset_id,
+              datasetFilename: c.datasetFilename || c.dataset_filename,
+              datasetHash: c.datasetHash || c.dataset_hash,
+            }));
           setCases((prev) => {
-            const existingIds = new Set(prev.map((p) => p.id));
+            const validPrev = Array.isArray(prev) ? prev.filter((p) => p && typeof p === 'object' && Boolean(p.id)) : [];
+            const existingIds = new Set(validPrev.map((p) => p.id));
             const newEntries = mapped.filter((m) => !existingIds.has(m.id));
-            const combined = [...prev, ...newEntries];
+            const combined = [...validPrev, ...newEntries];
             try {
               localStorage.setItem('anvitrace_cases', JSON.stringify(combined));
             } catch {}
@@ -352,13 +375,22 @@ export const CaseManagementView: React.FC<CaseManagementViewProps> = ({
     );
   };
 
-  const filteredCases = cases.filter(
-    (c) =>
-      c.id.toLowerCase().includes(filterText.toLowerCase()) ||
-      c.title.toLowerCase().includes(filterText.toLowerCase()) ||
-      c.targetAccount.toLowerCase().includes(filterText.toLowerCase()) ||
-      c.act.toLowerCase().includes(filterText.toLowerCase())
-  );
+  const searchFilter = (filterText || '').trim().toLowerCase();
+  const filteredCases = (Array.isArray(cases) ? cases : [])
+    .filter((c) => c && typeof c === 'object')
+    .filter((c) => {
+      if (!searchFilter) return true;
+      const cId = String(c.id || '').toLowerCase();
+      const cTitle = String(c.title || '').toLowerCase();
+      const cTarget = String(c.targetAccount || '').toLowerCase();
+      const cAct = String(c.act || '').toLowerCase();
+      return (
+        cId.includes(searchFilter) ||
+        cTitle.includes(searchFilter) ||
+        cTarget.includes(searchFilter) ||
+        cAct.includes(searchFilter)
+      );
+    });
 
   return (
     <div className="space-y-6 pb-16 select-none max-w-7xl mx-auto">
