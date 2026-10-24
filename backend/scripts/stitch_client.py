@@ -2,13 +2,14 @@
 
 import argparse
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
 from typing import Any
 
 STITCH_MCP_URL = "https://stitch.googleapis.com/mcp"
-DEFAULT_API_KEY = "REDACTED"
+DEFAULT_API_KEY = os.getenv("STITCH_API_KEY", "")
 
 
 class StitchClient:
